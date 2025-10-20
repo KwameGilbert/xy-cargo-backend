@@ -10,22 +10,8 @@ return function ($app): void {
         '/v1/clients' => ROUTES . '/v1/client.routes.php',
         '/v1/parcels' => ROUTES . '/v1/parcel.routes.php',
         '/v1/invoices' => ROUTES . '/v1/invoice.routes.php',
-    '/v1/payments' => ROUTES . '/v1/payment.routes.php',
-    '/v1/shipments' => ROUTES . '/v1/shipment.routes.php',
-        // '/v1/hotels' => ROUTES . '/v1/HotelRoute.php',
-        // 'v1/room-types' => ROUTES . '/v1/RoomTypeRoute.php',
-        // '/v1/rooms' => ROUTES . '/v1/RoomRoute.php',
-        // '/v1/customers' => ROUTES . '/v1/CustomerRoute.php',
-        // '/v1/check-outs' => ROUTES . '/v1/CheckOutRoute.php',
-        // '/v1/check-ins' => ROUTES . '/v1/CheckInRoute.php',
-        // '/v1/bookings' => ROUTES . '/v1/BookingRoute.php',
-        // '/v1/emergency-contacts' => ROUTES . '/v1/EmergencyContactRoute.php',
-        // '/v1/payments' => ROUTES . '/v1/PaymentRoute.php',
-        // '/v1/payment-methods' => ROUTES . '/v1/PaymentMethodRoute.php',
-        // 'v1/settings' => ROUTES . '/v1/SettingsRoute.php',
-        // 'v1/dashboard' => ROUTES . '/v1/DashboardRoute.php',
-        // 'v1/notifications' => ROUTES . '/v1/NotificationRoute.php'
-
+        '/v1/payments' => ROUTES . '/v1/payment.routes.php',
+        '/v1/shipments' => ROUTES . '/v1/shipment.routes.php',
         // Add more routes as needed
     ];
 
