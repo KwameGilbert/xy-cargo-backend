@@ -1,0 +1,162 @@
+### CREATE NEW SHIPMENT
+POST http://app.xycargo.com/v1/shipments HTTP/1.1
+Host: app.xycargo.com
+Connection: keep-alive
+Content-Type: application/json
+
+{
+    "origin_country": "Ghana",
+    "destination_country": "USA",
+    "departure_date": "2025-10-21 08:00:00",
+    "arrival_date": "2025-10-30 18:00:00",
+    "priority": "express",
+    "warehouse_id": 1,
+    "expected_delivery": "2025-10-31 12:00:00",
+    "notes": "Handle with care"
+}
+
+### RESPONSE
+
+{
+  "status": "success",
+  "code": 201,
+  "shipment": {
+    "shipment_id": 1,
+    "tracking_number": "SHPXXXXXXXXXXXX",
+    "origin_country": "Ghana",
+    "destination_country": "USA",
+    "departure_date": "2025-10-21 08:00:00",
+    "arrival_date": "2025-10-30 18:00:00",
+    "status": "pending",
+    "priority": "express",
+    "warehouse_id": 1,
+    "shipped_at": null,
+    "expected_delivery": "2025-10-31 12:00:00",
+    "delivered_at": null,
+    "notes": "Handle with care",
+    "created_at": "2025-10-20 14:00:00",
+    "updated_at": "2025-10-20 14:00:00"
+  },
+  "message": "Shipment created successfully"
+}
+
+### GET ALL SHIPMENTS
+GET http://app.xycargo.com/v1/shipments HTTP/1.1
+Host: app.xycargo.com
+Connection: keep-alive
+
+### RESPONSE
+
+{
+  "status": "success",
+  "code": 200,
+  "shipments": [
+    {
+      "shipment_id": 1,
+      "tracking_number": "SHPXXXXXXXXXXXX",
+      "origin_country": "Ghana",
+      "destination_country": "USA",
+      "departure_date": "2025-10-21 08:00:00",
+      "arrival_date": "2025-10-30 18:00:00",
+      "status": "pending",
+      "priority": "express",
+      "warehouse_id": 1,
+      "shipped_at": null,
+      "expected_delivery": "2025-10-31 12:00:00",
+      "delivered_at": null,
+      "notes": "Handle with care",
+      "created_at": "2025-10-20 14:00:00",
+      "updated_at": "2025-10-20 14:00:00"
+    }
+  ],
+  "message": null
+}
+
+### GET SHIPMENT BY TRACKING NUMBER
+GET http://app.xycargo.com/v1/shipments/tracking/SHPXXXXXXXXXXXX HTTP/1.1
+Host: app.xycargo.com
+Connection: keep-alive
+
+### RESPONSE
+
+{
+  "status": "success",
+  "code": 200,
+  "shipment": {
+    "shipment_id": 1,
+    "tracking_number": "SHPXXXXXXXXXXXX",
+    "origin_country": "Ghana",
+    "destination_country": "USA",
+    "departure_date": "2025-10-21 08:00:00",
+    "arrival_date": "2025-10-30 18:00:00",
+    "status": "pending",
+    "priority": "express",
+    "warehouse_id": 1,
+    "shipped_at": null,
+    "expected_delivery": "2025-10-31 12:00:00",
+    "delivered_at": null,
+    "notes": "Handle with care",
+    "created_at": "2025-10-20 14:00:00",
+    "updated_at": "2025-10-20 14:00:00"
+  },
+  "message": null
+}
+
+### CHANGE TRACKING NUMBER
+PATCH http://app.xycargo.com/v1/shipments/1/tracking HTTP/1.1
+Host: app.xycargo.com
+Connection: keep-alive
+Content-Type: application/json
+
+{
+    "tracking_number": "SHPNEWTRACK12345"
+}
+
+### RESPONSE
+
+{
+  "status": "success",
+  "code": 200,
+  "shipment": {
+    "shipment_id": 1,
+    "tracking_number": "SHPNEWTRACK12345",
+    "updated_at": "2025-10-20 15:00:00"
+  },
+  "message": "Tracking number changed successfully"
+}
+
+### UPDATE SHIPMENT STATUS
+PATCH http://app.xycargo.com/v1/shipments/1/status HTTP/1.1
+Host: app.xycargo.com
+Connection: keep-alive
+Content-Type: application/json
+
+{
+    "status": "in_transit"
+}
+
+### RESPONSE
+
+{
+  "status": "success",
+  "code": 200,
+  "shipment": {
+    "shipment_id": 1,
+    "status": "in_transit",
+    "updated_at": "2025-10-20 15:05:00"
+  },
+  "message": "Status updated successfully"
+}
+
+### DELETE SHIPMENT
+DELETE http://app.xycargo.com/v1/shipments/1 HTTP/1.1
+Host: app.xycargo.com
+Connection: keep-alive
+
+### RESPONSE
+
+{
+  "status": "success",
+  "code": 200,
+  "message": "Shipment deleted successfully"
+}

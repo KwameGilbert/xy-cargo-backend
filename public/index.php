@@ -4,6 +4,8 @@ define('ROUTES', BASE . 'src/routes/');
 define('MODEL', BASE . 'src/model/');
 define('CONTROLLER', BASE . 'src/controller/');
 define('CONFIG', BASE . 'src/config/');
+define('MIDDLEWARE', BASE . 'src/middleware/');
+define('HELPER', BASE . 'src/helper/');
 
 
 require_once BASE . 'vendor/autoload.php';

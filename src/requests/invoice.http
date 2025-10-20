@@ -1,0 +1,191 @@
+### CREATE NEW INVOICE
+POST http://app.xycargo.com/v1/invoices HTTP/1.1
+Host: app.xycargo.com
+Connection: keep-alive
+Content-Type: application/json
+
+{
+    "parcel_id": 1,
+    "client_id": 1,
+    "amount": 50.00,
+    "status": "unpaid"
+}
+
+### RESPONSE
+
+{
+  "status": "success",
+  "code": 201,
+  "invoice": {
+    "invoice_id": 1,
+    "parcel_id": 1,
+    "client_id": 1,
+    "amount": 50.00,
+    "status": "unpaid",
+    "created_at": "2025-10-20 12:00:00",
+    "updated_at": "2025-10-20 12:00:00"
+  },
+  "message": "Invoice created successfully"
+}
+
+### GET ALL INVOICES
+GET http://app.xycargo.com/v1/invoices HTTP/1.1
+Host: app.xycargo.com
+Connection: keep-alive
+
+### RESPONSE
+
+{
+  "status": "success",
+  "code": 200,
+  "invoices": [
+    {
+      "invoice_id": 1,
+      "parcel_id": 1,
+      "client_id": 1,
+      "amount": 50.00,
+      "status": "unpaid",
+      "created_at": "2025-10-20 12:00:00",
+      "updated_at": "2025-10-20 12:00:00"
+    }
+  ],
+  "message": null
+}
+
+### GET INVOICE BY ID
+GET http://app.xycargo.com/v1/invoices/1 HTTP/1.1
+Host: app.xycargo.com
+Connection: keep-alive
+
+### RESPONSE
+
+{
+  "status": "success",
+  "code": 200,
+  "invoice": {
+    "invoice_id": 1,
+    "parcel_id": 1,
+    "client_id": 1,
+    "amount": 50.00,
+    "status": "unpaid",
+    "created_at": "2025-10-20 12:00:00",
+    "updated_at": "2025-10-20 12:00:00"
+  },
+  "message": null
+}
+
+### GET INVOICES BY PARCEL ID
+GET http://app.xycargo.com/v1/invoices/parcel/1 HTTP/1.1
+Host: app.xycargo.com
+Connection: keep-alive
+
+### RESPONSE
+
+{
+  "status": "success",
+  "code": 200,
+  "invoices": [
+    {
+      "invoice_id": 1,
+      "parcel_id": 1,
+      "client_id": 1,
+      "amount": 50.00,
+      "status": "unpaid",
+      "created_at": "2025-10-20 12:00:00",
+      "updated_at": "2025-10-20 12:00:00"
+    }
+  ],
+  "message": null
+}
+
+### GET INVOICES BY CLIENT ID
+GET http://app.xycargo.com/v1/invoices/client/1 HTTP/1.1
+Host: app.xycargo.com
+Connection: keep-alive
+
+### RESPONSE
+
+{
+  "status": "success",
+  "code": 200,
+  "invoices": [
+    {
+      "invoice_id": 1,
+      "parcel_id": 1,
+      "client_id": 1,
+      "amount": 50.00,
+      "status": "unpaid",
+      "created_at": "2025-10-20 12:00:00",
+      "updated_at": "2025-10-20 12:00:00"
+    }
+  ],
+  "message": null
+}
+
+### UPDATE INVOICE
+PATCH http://app.xycargo.com/v1/invoices/1 HTTP/1.1
+Host: app.xycargo.com
+Connection: keep-alive
+Content-Type: application/json
+
+{
+    "amount": 75.00,
+    "status": "paid"
+}
+
+### RESPONSE
+
+{
+  "status": "success",
+  "code": 200,
+  "invoice": {
+    "invoice_id": 1,
+    "parcel_id": 1,
+    "client_id": 1,
+    "amount": 75.00,
+    "status": "paid",
+    "created_at": "2025-10-20 12:00:00",
+    "updated_at": "2025-10-20 12:30:00"
+  },
+  "message": "Invoice updated successfully"
+}
+
+### UPDATE INVOICE STATUS
+PATCH http://app.xycargo.com/v1/invoices/1/status HTTP/1.1
+Host: app.xycargo.com
+Connection: keep-alive
+Content-Type: application/json
+
+{
+    "status": "overdue"
+}
+
+### RESPONSE
+
+{
+  "status": "success",
+  "code": 200,
+  "invoice": {
+    "invoice_id": 1,
+    "parcel_id": 1,
+    "client_id": 1,
+    "amount": 75.00,
+    "status": "overdue",
+    "created_at": "2025-10-20 12:00:00",
+    "updated_at": "2025-10-20 12:35:00"
+  },
+  "message": "Invoice status updated successfully"
+}
+
+### DELETE INVOICE
+DELETE http://app.xycargo.com/v1/invoices/1 HTTP/1.1
+Host: app.xycargo.com
+Connection: keep-alive
+
+### RESPONSE
+
+{
+  "status": "success",
+  "code": 200,
+  "message": "Invoice deleted successfully"
+}

@@ -1,0 +1,184 @@
+### CREATE NEWW CLIENT
+POST http://app.xycargo.com/v1/clients HTTP/1.1
+Host: app.xycargo.com
+Connection: keep-alive
+Content-Type: application/json
+
+{
+    "firstName": "Gilbert Elikplim",
+    "lastName": "Kukah",
+    "email": "gkukah1@gmail.com",
+    "phone": "0541436414",
+    "address": "Ho",
+    "company": "Nolex",
+    "password": "1234"
+}
+
+### RESPONSE
+
+{
+  "status": "success",
+  "code": 201,
+  "client": {
+    "client_id": 1,
+    "firstName": "Gilbert Elikplim",
+    "lastName": "Kukah",
+    "email": "gkukah1@gmail.com",
+    "phone": "0541436414",
+    "address": "Ho",
+    "company": "Nolex",
+    "created_at": "2025-10-20 10:25:52",
+    "updated_at": "2025-10-20 10:25:52"
+  },
+  "message": "Client created successfully"
+}
+
+### GET CLIENT BY ID
+GET http://app.xycargo.com/v1/clients/1 HTTP/1.1
+Host: app.xycargo.com
+Connection: keep-alive
+
+### RESPONSE
+
+{
+  "status": "success",
+  "code": 200,
+  "client": {
+    "client_id": 1,
+    "firstName": "Gilbert Elikplim",
+    "lastName": "Kukah",
+    "email": "gkukah1@gmail.com",
+    "phone": "0541436414",
+    "address": "Ho",
+    "company": "Nolex",
+    "created_at": "2025-10-20 10:25:52",
+    "updated_at": "2025-10-20 10:25:52"
+  },
+  "message": null
+}
+
+### GET ALL CLIENTS
+GET http://app.xycargo.com/v1/clients HTTP/1.1
+Host: app.xycargo.com
+Connection: keep-alive
+
+### RESPONSE
+{
+  "status": "success",
+  "code": 200,
+  "clients": [
+    {
+      "client_id": 1,
+      "firstName": "Gilbert Elikplim",
+      "lastName": "Kukah",
+      "email": "gkukah1@gmail.com",
+      "phone": "0541436414",
+      "address": "Ho",
+      "company": "Nolex",
+      "created_at": "2025-10-20 10:25:52",
+      "updated_at": "2025-10-20 10:25:52"
+    }
+  ],
+  "message": null
+}
+
+### GET CLIENT BY EMAIL
+GET http://app.xycargo.com/v1/clients/email/gkukah1@gmail.com HTTP/1.1
+Host: app.xycargo.com
+Connection: keep-alive
+
+### RESPONSE
+{
+  "status": "success",
+  "code": 200,
+  "client": {
+    "client_id": 1,
+    "firstName": "Gilbert Elikplim",
+    "lastName": "Kukah",
+    "email": "gkukah1@gmail.com",
+    "phone": "0541436414",
+    "address": "Ho",
+    "company": "Nolex",
+    "created_at": "2025-10-20 10:25:52",
+    "updated_at": "2025-10-20 10:25:52"
+  },
+  "message": null
+}
+
+### GET CLIENT BY PHONE
+GET http://app.xycargo.com/v1/clients/phone/0541436414 HTTP/1.1
+Host: app.xycargo.com
+Connection: keep-alive
+
+### RESPONSE
+{
+  "status": "success",
+  "code": 200,
+  "client": {
+    "client_id": 1,
+    "firstName": "Gilbert Elikplim",
+    "lastName": "Kukah",
+    "email": "gkukah1@gmail.com",
+    "phone": "0541436414",
+    "address": "Ho",
+    "company": "Nolex",
+    "created_at": "2025-10-20 10:25:52",
+    "updated_at": "2025-10-20 10:25:52"
+  },
+  "message": null
+}
+
+### UPDATE CLIENT
+PATCH http://app.xycargo.com/v1/clients/1 HTTP/1.1
+Host: app.xycargo.com
+Connection: keep-alive
+Content-Type: application/json
+
+{
+    "firstName": "Gilbert E.",
+    "lastName": "Kukah",
+    "phone": "0549999999",
+    "address": "Accra"
+}
+
+### RESPONSE
+{
+  "status": "success",
+  "code": 200,
+  "client": {
+    "client_id": 1,
+    "firstName": "Gilbert E.",
+    "lastName": "Kukah",
+    "email": "gkukah1@gmail.com",
+    "phone": "0549999999",
+    "address": "Accra",
+    "company": "Nolex",
+    "created_at": "2025-10-20 10:25:52",
+    "updated_at": "2025-10-20 11:47:41"
+  },
+  "message": "Client updated successfully"
+}
+
+### DELETE CLIENT
+DELETE http://app.xycargo.com/v1/clients/2 HTTP/1.1
+Host: app.xycargo.com
+Connection: keep-alive
+
+### RESPONSE
+{
+  "status": "success",
+  "code": 200,
+  "client": null,
+  "message": "Client deleted successfully"
+}
+
+### CLIENT LOGIN
+POST http://app.xycargo.com/v1/auth/client/login HTTP/1.1  
+Host: app.xycargo.com 
+Connection: keep-alive
+
+{
+    "email":"gkukah1@gmail.com",
+    "password": "1234"
+}
+

@@ -6,8 +6,12 @@ return function ($app): void {
 
     // Map route prefixes to their router files
     $routeMap = [
-        // '/v1/auth' => ROUTES . '/v1/AuthRoute.php',
-        // '/v1/users' => ROUTES . '/v1/UserRoute.php',
+        '/v1/auth' => ROUTES . '/v1/auth.routes.php',
+        '/v1/clients' => ROUTES . '/v1/client.routes.php',
+        '/v1/parcels' => ROUTES . '/v1/parcel.routes.php',
+        '/v1/invoices' => ROUTES . '/v1/invoice.routes.php',
+    '/v1/payments' => ROUTES . '/v1/payment.routes.php',
+    '/v1/shipments' => ROUTES . '/v1/shipment.routes.php',
         // '/v1/hotels' => ROUTES . '/v1/HotelRoute.php',
         // 'v1/room-types' => ROUTES . '/v1/RoomTypeRoute.php',
         // '/v1/rooms' => ROUTES . '/v1/RoomRoute.php',
