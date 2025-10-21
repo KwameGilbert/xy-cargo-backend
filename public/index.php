@@ -95,8 +95,8 @@ $app->get('/', function ($request, $response) {
     return $response->withHeader('Content-Type', 'application/json');
 });
 
-$app->get('/hello', function ($request, $response, $args) {
-    $data = ['message' => 'This is a hello route.'];
+$app->get('/health', function ($request, $response, $args) {
+    $data = ['message' => 'This is a health check route.'];
     $payload = json_encode($data);
     $response->getBody()->write($payload);
     return $response->withHeader('Content-Type', 'application/json');

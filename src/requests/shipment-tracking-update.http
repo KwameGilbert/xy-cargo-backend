@@ -1,0 +1,159 @@
+### CREATE NEW TRACKING UPDATE
+POST http://app.xycargo.com/v1/shipment-tracking-updates HTTP/1.1
+Host: app.xycargo.com
+Connection: keep-alive
+Content-Type: application/json
+
+{
+    "shipment_id": 1,
+    "status": "in_transit",
+    "location": "Accra Airport",
+    "notes": "Package loaded onto flight AA123"
+}
+
+### RESPONSE
+
+{
+  "status": "success",
+  "code": 201,
+  "tracking_update": {
+    "update_id": 1,
+    "shipment_id": 1,
+    "status": "in_transit",
+    "location": "Accra Airport",
+    "updated_at": "2025-10-21 14:00:00",
+    "notes": "Package loaded onto flight AA123"
+  },
+  "message": "Tracking update created successfully"
+}
+
+### GET ALL TRACKING UPDATES
+GET http://app.xycargo.com/v1/shipment-tracking-updates HTTP/1.1
+Host: app.xycargo.com
+Connection: keep-alive
+
+### RESPONSE
+
+{
+  "status": "success",
+  "code": 200,
+  "tracking_updates": [
+    {
+      "update_id": 1,
+      "shipment_id": 1,
+      "status": "in_transit",
+      "location": "Accra Airport",
+      "updated_at": "2025-10-21 14:00:00",
+      "notes": "Package loaded onto flight AA123"
+    },
+    {
+      "update_id": 2,
+      "shipment_id": 1,
+      "status": "out_for_delivery",
+      "location": "New York Distribution Center",
+      "updated_at": "2025-10-21 16:30:00",
+      "notes": "Package arrived at destination facility"
+    }
+  ],
+  "message": null
+}
+
+### GET TRACKING UPDATE BY ID
+GET http://app.xycargo.com/v1/shipment-tracking-updates/1 HTTP/1.1
+Host: app.xycargo.com
+Connection: keep-alive
+
+### RESPONSE
+
+{
+  "status": "success",
+  "code": 200,
+  "tracking_update": {
+    "update_id": 1,
+    "shipment_id": 1,
+    "status": "in_transit",
+    "location": "Accra Airport",
+    "updated_at": "2025-10-21 14:00:00",
+    "notes": "Package loaded onto flight AA123"
+  },
+  "message": null
+}
+
+### GET TRACKING UPDATES BY SHIPMENT ID
+GET http://app.xycargo.com/v1/shipments/1/tracking-updates HTTP/1.1
+Host: app.xycargo.com
+Connection: keep-alive
+
+### RESPONSE
+
+{
+  "status": "success",
+  "code": 200,
+  "tracking_updates": [
+    {
+      "update_id": 1,
+      "shipment_id": 1,
+      "status": "in_transit",
+      "location": "Accra Airport",
+      "updated_at": "2025-10-21 14:00:00",
+      "notes": "Package loaded onto flight AA123"
+    },
+    {
+      "update_id": 2,
+      "shipment_id": 1,
+      "status": "out_for_delivery",
+      "location": "New York Distribution Center",
+      "updated_at": "2025-10-21 16:30:00",
+      "notes": "Package arrived at destination facility"
+    },
+    {
+      "update_id": 3,
+      "shipment_id": 1,
+      "status": "delivered",
+      "location": "Customer Address",
+      "updated_at": "2025-10-21 17:45:00",
+      "notes": "Package successfully delivered to customer"
+    }
+  ],
+  "message": null
+}
+
+### UPDATE TRACKING UPDATE
+PATCH http://app.xycargo.com/v1/shipment-tracking-updates/1 HTTP/1.1
+Host: app.xycargo.com
+Connection: keep-alive
+Content-Type: application/json
+
+{
+    "location": "Accra Airport - Gate A12",
+    "notes": "Package loaded onto flight AA123, departing at 15:30"
+}
+
+### RESPONSE
+
+{
+  "status": "success",
+  "code": 200,
+  "tracking_update": {
+    "update_id": 1,
+    "shipment_id": 1,
+    "status": "in_transit",
+    "location": "Accra Airport - Gate A12",
+    "updated_at": "2025-10-21 14:00:00",
+    "notes": "Package loaded onto flight AA123, departing at 15:30"
+  },
+  "message": "Tracking update updated successfully"
+}
+
+### DELETE TRACKING UPDATE
+DELETE http://app.xycargo.com/v1/shipment-tracking-updates/1 HTTP/1.1
+Host: app.xycargo.com
+Connection: keep-alive
+
+### RESPONSE
+
+{
+  "status": "success",
+  "code": 200,
+  "message": "Tracking update deleted successfully"
+}

@@ -1,0 +1,233 @@
+### CREATE NEW WAREHOUSE STAFF
+POST http://app.xycargo.com/v1/warehouse-staff HTTP/1.1
+Host: app.xycargo.com
+Connection: keep-alive
+Content-Type: application/json
+
+{
+    "warehouse_id": 1,
+    "firstName": "John",
+    "lastName": "Doe",
+    "email": "john.doe@xycargo.com",
+    "phone": "+233501234567",
+    "password_hash": "$2y$10$hashedpasswordhere",
+    "role": "Manager",
+    "status": "active",
+    "profile_picture": "https://example.com/profile.jpg"
+}
+
+### RESPONSE
+
+{
+  "status": "success",
+  "code": 201,
+  "staff": {
+    "staff_id": 1,
+    "warehouse_id": 1,
+    "firstName": "John",
+    "lastName": "Doe",
+    "email": "john.doe@xycargo.com",
+    "phone": "+233501234567",
+    "role": "Manager",
+    "status": "active",
+    "profile_picture": "https://example.com/profile.jpg",
+    "created_at": "2025-10-21 10:00:00",
+    "updated_at": "2025-10-21 10:00:00",
+    "warehouse_name": "Main Warehouse"
+  },
+  "message": "Warehouse staff member created successfully"
+}
+
+### GET ALL WAREHOUSE STAFF
+GET http://app.xycargo.com/v1/warehouse-staff HTTP/1.1
+Host: app.xycargo.com
+Connection: keep-alive
+
+### RESPONSE
+
+{
+  "status": "success",
+  "code": 200,
+  "staff": [
+    {
+      "staff_id": 1,
+      "warehouse_id": 1,
+      "firstName": "John",
+      "lastName": "Doe",
+      "email": "john.doe@xycargo.com",
+      "phone": "+233501234567",
+      "role": "Manager",
+      "status": "active",
+      "profile_picture": "https://example.com/profile.jpg",
+      "created_at": "2025-10-21 10:00:00",
+      "updated_at": "2025-10-21 10:00:00",
+      "warehouse_name": "Main Warehouse"
+    }
+  ],
+  "message": null
+}
+
+### GET WAREHOUSE STAFF BY ID
+GET http://app.xycargo.com/v1/warehouse-staff/1 HTTP/1.1
+Host: app.xycargo.com
+Connection: keep-alive
+
+### RESPONSE
+
+{
+  "status": "success",
+  "code": 200,
+  "staff": {
+    "staff_id": 1,
+    "warehouse_id": 1,
+    "firstName": "John",
+    "lastName": "Doe",
+    "email": "john.doe@xycargo.com",
+    "phone": "+233501234567",
+    "role": "Manager",
+    "status": "active",
+    "profile_picture": "https://example.com/profile.jpg",
+    "created_at": "2025-10-21 10:00:00",
+    "updated_at": "2025-10-21 10:00:00",
+    "warehouse_name": "Main Warehouse"
+  },
+  "message": null
+}
+
+### GET WAREHOUSE STAFF BY WAREHOUSE ID
+GET http://app.xycargo.com/v1/warehouse-staff/warehouse/1 HTTP/1.1
+Host: app.xycargo.com
+Connection: keep-alive
+
+### RESPONSE
+
+{
+  "status": "success",
+  "code": 200,
+  "staff": [
+    {
+      "staff_id": 1,
+      "warehouse_id": 1,
+      "firstName": "John",
+      "lastName": "Doe",
+      "email": "john.doe@xycargo.com",
+      "phone": "+233501234567",
+      "role": "Manager",
+      "status": "active",
+      "profile_picture": "https://example.com/profile.jpg",
+      "created_at": "2025-10-21 10:00:00",
+      "updated_at": "2025-10-21 10:00:00",
+      "warehouse_name": "Main Warehouse"
+    }
+  ],
+  "message": null
+}
+
+### GET WAREHOUSE STAFF BY STATUS
+GET http://app.xycargo.com/v1/warehouse-staff/status/active HTTP/1.1
+Host: app.xycargo.com
+Connection: keep-alive
+
+### RESPONSE
+
+{
+  "status": "success",
+  "code": 200,
+  "staff": [
+    {
+      "staff_id": 1,
+      "warehouse_id": 1,
+      "firstName": "John",
+      "lastName": "Doe",
+      "email": "john.doe@xycargo.com",
+      "phone": "+233501234567",
+      "role": "Manager",
+      "status": "active",
+      "profile_picture": "https://example.com/profile.jpg",
+      "created_at": "2025-10-21 10:00:00",
+      "updated_at": "2025-10-21 10:00:00",
+      "warehouse_name": "Main Warehouse"
+    }
+  ],
+  "message": null
+}
+
+### UPDATE WAREHOUSE STAFF
+PATCH http://app.xycargo.com/v1/warehouse-staff/1 HTTP/1.1
+Host: app.xycargo.com
+Connection: keep-alive
+Content-Type: application/json
+
+{
+    "firstName": "John",
+    "lastName": "Smith",
+    "phone": "+233509876543",
+    "role": "Senior Manager"
+}
+
+### RESPONSE
+
+{
+  "status": "success",
+  "code": 200,
+  "staff": {
+    "staff_id": 1,
+    "warehouse_id": 1,
+    "firstName": "John",
+    "lastName": "Smith",
+    "email": "john.doe@xycargo.com",
+    "phone": "+233509876543",
+    "role": "Senior Manager",
+    "status": "active",
+    "profile_picture": "https://example.com/profile.jpg",
+    "created_at": "2025-10-21 10:00:00",
+    "updated_at": "2025-10-21 10:30:00",
+    "warehouse_name": "Main Warehouse"
+  },
+  "message": "Warehouse staff member updated successfully"
+}
+
+### UPDATE WAREHOUSE STAFF STATUS
+PATCH http://app.xycargo.com/v1/warehouse-staff/1/status HTTP/1.1
+Host: app.xycargo.com
+Connection: keep-alive
+Content-Type: application/json
+
+{
+    "status": "inactive"
+}
+
+### RESPONSE
+
+{
+  "status": "success",
+  "code": 200,
+  "staff": {
+    "staff_id": 1,
+    "warehouse_id": 1,
+    "firstName": "John",
+    "lastName": "Smith",
+    "email": "john.doe@xycargo.com",
+    "phone": "+233509876543",
+    "role": "Senior Manager",
+    "status": "inactive",
+    "profile_picture": "https://example.com/profile.jpg",
+    "created_at": "2025-10-21 10:00:00",
+    "updated_at": "2025-10-21 10:35:00",
+    "warehouse_name": "Main Warehouse"
+  },
+  "message": "Status updated successfully"
+}
+
+### DELETE WAREHOUSE STAFF
+DELETE http://app.xycargo.com/v1/warehouse-staff/1 HTTP/1.1
+Host: app.xycargo.com
+Connection: keep-alive
+
+### RESPONSE
+
+{
+  "status": "success",
+  "code": 200,
+  "message": "Warehouse staff member deleted successfully"
+}
