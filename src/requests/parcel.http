@@ -6,6 +6,7 @@ Content-Type: application/json
 
 {
     "client_id": 4,
+    "shipment_id": 1,
     "description": "Electronics shipment",
     "weight": 5.5,
     "dimensions": "30x20x15",
@@ -47,6 +48,7 @@ Content-Type: application/json
   "parcel": {
     "parcel_id": 1,
     "client_id": 1,
+    "shipment_id": 1,
     "description": "Electronics shipment",
     "weight": 5.5,
     "dimensions": "30x20x15",
@@ -446,6 +448,7 @@ Connection: keep-alive
 Content-Type: application/json
 
 {
+    "shipment_id": 2,
     "description": "Updated electronics shipment",
     "weight": 6.0,
     "status": "in_transit",
@@ -461,6 +464,7 @@ Content-Type: application/json
   "parcel": {
     "parcel_id": 1,
     "client_id": 1,
+    "shipment_id": 2,
     "description": "Updated electronics shipment",
     "weight": 6.0,
     "dimensions": "30x20x15",

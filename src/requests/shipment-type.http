@@ -1,0 +1,113 @@
+### CREATE NEW SHIPMENT TYPE
+POST http://app.xycargo.com/v1/shipment-types HTTP/1.1
+Host: app.xycargo.com
+Connection: keep-alive
+Content-Type: application/json
+
+{
+    "name": "Express Delivery",
+    "description": "Fast delivery service with guaranteed 24-hour delivery"
+}
+
+### RESPONSE
+
+{
+  "status": "success",
+  "code": 201,
+  "shipment_type": {
+    "type_id": 1,
+    "name": "Express Delivery",
+    "description": "Fast delivery service with guaranteed 24-hour delivery",
+    "created_at": "2025-10-21 14:00:00",
+    "updated_at": "2025-10-21 14:00:00"
+  },
+  "message": "Shipment type created successfully"
+}
+
+### GET ALL SHIPMENT TYPES
+GET http://app.xycargo.com/v1/shipment-types HTTP/1.1
+Host: app.xycargo.com
+Connection: keep-alive
+
+### RESPONSE
+
+{
+  "status": "success",
+  "code": 200,
+  "shipment_types": [
+    {
+      "type_id": 1,
+      "name": "Express Delivery",
+      "description": "Fast delivery service with guaranteed 24-hour delivery",
+      "created_at": "2025-10-21 14:00:00",
+      "updated_at": "2025-10-21 14:00:00"
+    },
+    {
+      "type_id": 2,
+      "name": "Standard Delivery",
+      "description": "Regular delivery service within 3-5 business days",
+      "created_at": "2025-10-21 14:05:00",
+      "updated_at": "2025-10-21 14:05:00"
+    }
+  ],
+  "message": null
+}
+
+### GET SHIPMENT TYPE BY ID
+GET http://app.xycargo.com/v1/shipment-types/1 HTTP/1.1
+Host: app.xycargo.com
+Connection: keep-alive
+
+### RESPONSE
+
+{
+  "status": "success",
+  "code": 200,
+  "shipment_type": {
+    "type_id": 1,
+    "name": "Express Delivery",
+    "description": "Fast delivery service with guaranteed 24-hour delivery",
+    "created_at": "2025-10-21 14:00:00",
+    "updated_at": "2025-10-21 14:00:00"
+  },
+  "message": null
+}
+
+### UPDATE SHIPMENT TYPE
+PATCH http://app.xycargo.com/v1/shipment-types/1 HTTP/1.1
+Host: app.xycargo.com
+Connection: keep-alive
+Content-Type: application/json
+
+{
+    "name": "Premium Express",
+    "description": "Premium fast delivery service with guaranteed 12-hour delivery"
+}
+
+### RESPONSE
+
+{
+  "status": "success",
+  "code": 200,
+  "shipment_type": {
+    "type_id": 1,
+    "name": "Premium Express",
+    "description": "Premium fast delivery service with guaranteed 12-hour delivery",
+    "created_at": "2025-10-21 14:00:00",
+    "updated_at": "2025-10-21 15:00:00"
+  },
+  "message": "Shipment type updated successfully"
+}
+
+### DELETE SHIPMENT TYPE
+DELETE http://app.xycargo.com/v1/shipment-types/1 HTTP/1.1
+Host: app.xycargo.com
+Connection: keep-alive
+
+### RESPONSE
+
+{
+  "status": "success",
+  "code": 200,
+  "message": "Shipment type deleted successfully"
+}

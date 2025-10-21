@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 require_once CONFIG . 'Database.php';
+require_once MODEL . 'warehouse.model.php';
 
 /**
  * Shipment Model aligned to database/schema.sql
@@ -21,6 +22,9 @@ class ShipmentModel
     /** @var string */
     private string $lastError = '';
 
+    /** @var WarehouseModel */
+    protected WarehouseModel $warehouseModel;
+
     public function __construct()
     {
         try {
@@ -30,6 +34,7 @@ class ShipmentModel
                 throw new PDOException('Database connection is null');
             }
             $this->db = $connection;
+            $this->warehouseModel = new WarehouseModel();
         } catch (PDOException $e) {
             $this->lastError = 'Database connection failed: ' . $e->getMessage();
             error_log($this->lastError);
@@ -198,6 +203,14 @@ class ShipmentModel
                 }
             }
 
+            // Validate warehouse if provided
+            if (isset($data['warehouse_id']) && $data['warehouse_id'] !== null) {
+                if (!$this->warehouseModel->getWarehouseById($data['warehouse_id'])) {
+                    $this->lastError = 'Warehouse does not exist';
+                    return false;
+                }
+            }
+
             $sql = "INSERT INTO {$this->tableName} (tracking_number, origin_country, destination_country, departure_date, arrival_date, status, priority, warehouse_id, shipped_at, expected_delivery, delivered_at, notes)
                     VALUES (:tracking_number, :origin_country, :destination_country, :departure_date, :arrival_date, :status, :priority, :warehouse_id, :shipped_at, :expected_delivery, :delivered_at, :notes)";
             $stmt = $this->db->prepare($sql);
@@ -246,6 +259,13 @@ class ShipmentModel
                         $existing = $this->getShipmentByTrackingNumber($value);
                         if ($existing && $existing['shipment_id'] != $shipmentId) {
                             $this->lastError = 'Tracking number already exists';
+                            return false;
+                        }
+                    }
+                    // Special handling for warehouse_id validation
+                    if ($key === 'warehouse_id' && $value !== null) {
+                        if (!$this->warehouseModel->getWarehouseById($value)) {
+                            $this->lastError = 'Warehouse does not exist';
                             return false;
                         }
                     }

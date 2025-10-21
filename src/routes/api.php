@@ -12,6 +12,8 @@ return function ($app): void {
         '/v1/invoices' => ROUTES . '/v1/invoice.routes.php',
         '/v1/payments' => ROUTES . '/v1/payment.routes.php',
         '/v1/shipments' => ROUTES . '/v1/shipment.routes.php',
+        '/v1/warehouses' => ROUTES . '/v1/warehouse.routes.php',
+        '/v1/shipment-types' => ROUTES . '/v1/shipment-type.routes.php',
         // Add more routes as needed
     ];
 

@@ -5,6 +5,7 @@ declare(strict_types=1);
 require_once MODEL . 'parcel.model.php';
 require_once MODEL . 'parcel_item.model.php';
 require_once MODEL . 'invoice.model.php';
+require_once MODEL . 'shipment.model.php';
 
 /**
  * ParcelsController
@@ -17,12 +18,14 @@ class ParcelsController
     protected ParcelModel $parcelModel;
     protected ParcelItemModel $itemModel;
     protected InvoiceModel $invoiceModel;
+    protected ShipmentModel $shipmentModel;
 
     public function __construct()
     {
         $this->parcelModel = new ParcelModel();
         $this->itemModel = new ParcelItemModel();
         $this->invoiceModel = new InvoiceModel();
+        $this->shipmentModel = new ShipmentModel();
     }
 
     /**
@@ -168,11 +171,11 @@ class ParcelsController
 
     /**
      * Create a new parcel (with optional items)
-     * Expected data: client_id, description?, weight?, dimensions?, declared_value?, shipping_cost?, payment_status?, tags?, items?[]
+     * Expected data: client_id, shipment_id, description?, weight?, dimensions?, declared_value?, shipping_cost?, payment_status?, tags?, items?[]
      */
     public function createParcel(array $data): array
     {
-        $required = ['client_id'];
+        $required = ['client_id', 'shipment_id'];
         $missing = [];
         foreach ($required as $field) {
             if (!isset($data[$field]) || $data[$field] === '') {
@@ -184,6 +187,15 @@ class ParcelsController
                 'status' => 'error',
                 'code' => 400,
                 'message' => 'Missing required fields: ' . implode(', ', $missing),
+            ];
+        }
+
+        // Validate shipment exists
+        if (!$this->shipmentModel->getShipmentById((int) $data['shipment_id'])) {
+            return [
+                'status' => 'error',
+                'code' => 400,
+                'message' => 'Shipment does not exist',
             ];
         }
 
@@ -224,7 +236,7 @@ class ParcelsController
 
     /**
      * Update parcel fields
-     * Allowed fields: description, weight, dimensions, status, declared_value, shipping_cost, payment_status, tags
+     * Allowed fields: shipment_id, description, weight, dimensions, status, declared_value, shipping_cost, payment_status, tags
      */
     public function updateParcel(int $parcelId, array $data): array
     {
@@ -235,6 +247,17 @@ class ParcelsController
                 'code' => 404,
                 'message' => 'Parcel not found',
             ];
+        }
+
+        // Validate shipment_id if provided
+        if (isset($data['shipment_id']) && $data['shipment_id'] !== null) {
+            if (!$this->shipmentModel->getShipmentById((int) $data['shipment_id'])) {
+                return [
+                    'status' => 'error',
+                    'code' => 400,
+                    'message' => 'Shipment does not exist',
+                ];
+            }
         }
 
         $updated = $this->parcelModel->updateParcel($parcelId, $data);

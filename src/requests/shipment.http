@@ -10,7 +10,7 @@ Content-Type: application/json
     "departure_date": "2025-10-21 08:00:00",
     "arrival_date": "2025-10-30 18:00:00",
     "priority": "express",
-    "warehouse_id": 1,
+    "warehouse_id": 2,
     "expected_delivery": "2025-10-31 12:00:00",
     "notes": "Handle with care"
 }
@@ -73,7 +73,7 @@ Connection: keep-alive
 }
 
 ### GET SHIPMENT BY TRACKING NUMBER
-GET http://app.xycargo.com/v1/shipments/tracking/SHPXXXXXXXXXXXX HTTP/1.1
+GET http://app.xycargo.com/v1/shipments/tracking/SHPDDC925A636BE HTTP/1.1
 Host: app.xycargo.com
 Connection: keep-alive
 
