@@ -5,7 +5,7 @@ Connection: keep-alive
 Content-Type: application/json
 
 {
-    "warehouse_id": 1,
+    "warehouse_id": 2,
     "firstName": "John",
     "lastName": "Doe",
     "email": "john.doe@xycargo.com",

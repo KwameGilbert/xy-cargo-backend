@@ -1,0 +1,239 @@
+### AUTHENTICATION EXAMPLES
+
+### 1. CLIENT LOGIN (Public - No Auth Required)
+POST http://app.xycargo.com/v1/auth/client/login HTTP/1.1
+Host: app.xycargo.com
+Connection: keep-alive
+Content-Type: application/json
+
+{
+    "email": "john.doe@example.com",
+    "password": "password123"
+}
+
+### RESPONSE
+{
+  "code": 200,
+  "status": "success",
+  "data": {
+    "client_id": 1,
+    "firstName": "John",
+    "lastName": "Doe",
+    "email": "john.doe@example.com",
+    "phone": "+233501234567",
+    "address": "Accra, Ghana",
+    "company": "ABC Corp"
+  },
+  "token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9..."
+}
+
+### 2. ACCESS PROTECTED ROUTE (With Bearer Token)
+GET http://app.xycargo.com/v1/protected/profile HTTP/1.1
+Host: app.xycargo.com
+Connection: keep-alive
+Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...
+
+### RESPONSE
+{
+  "status": "success",
+  "message": "This is a protected route",
+  "user": {
+    "data": {
+      "client_id": 1,
+      "firstName": "John",
+      "lastName": "Doe",
+      "email": "john.doe@example.com",
+      "phone": "+233501234567",
+      "address": "Accra, Ghana",
+      "company": "ABC Corp"
+    },
+    "iat": 1697880000,
+    "exp": 1697883600
+  }
+}
+
+### 3. ACCESS WITHOUT TOKEN (Should Fail)
+GET http://app.xycargo.com/v1/protected/profile HTTP/1.1
+Host: app.xycargo.com
+Connection: keep-alive
+
+### RESPONSE
+{
+  "status": "error",
+  "code": 401,
+  "message": "Authorization header is required"
+}
+
+### 4. ACCESS WITH INVALID TOKEN (Should Fail)
+GET http://app.xycargo.com/v1/protected/profile HTTP/1.1
+Host: app.xycargo.com
+Connection: keep-alive
+Authorization: Bearer invalid.jwt.token
+
+### RESPONSE
+{
+  "status": "error",
+  "code": 401,
+  "message": "Invalid or expired token"
+}
+
+### 5. ACCESS WITH MALFORMED AUTH HEADER (Should Fail)
+GET http://app.xycargo.com/v1/protected/profile HTTP/1.1
+Host: app.xycargo.com
+Connection: keep-alive
+Authorization: NotBearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...
+
+### RESPONSE
+{
+  "status": "error",
+  "code": 401,
+  "message": "Invalid authorization header format. Expected: Bearer <token>"
+}
+
+### 6. PUBLIC ROUTE (No Auth Required)
+GET http://app.xycargo.com/v1/public/status HTTP/1.1
+Host: app.xycargo.com
+Connection: keep-alive
+
+### RESPONSE
+{
+  "status": "success",
+  "message": "This is a public route - no authentication required"
+}
+
+### 7. CLIENT SIGNUP (Public - No Auth Required)
+POST http://app.xycargo.com/v1/auth/client/signup HTTP/1.1
+Host: app.xycargo.com
+Connection: keep-alive
+Content-Type: application/json
+
+{
+    "firstName": "Jane",
+    "lastName": "Smith",
+    "email": "jane.smith@example.com",
+    "phone": "+233509876543",
+    "password": "securepassword123",
+    "address": "Tema, Ghana",
+    "company": "XYZ Ltd"
+}
+
+### RESPONSE
+{
+  "code": 201,
+  "status": "success",
+  "client": {
+    "client_id": 2,
+    "firstName": "Jane",
+    "lastName": "Smith",
+    "email": "jane.smith@example.com",
+    "phone": "+233509876543",
+    "address": "Tema, Ghana",
+    "company": "XYZ Ltd",
+    "created_at": "2025-10-21 12:00:00",
+    "updated_at": "2025-10-21 12:00:00"
+  },
+  "message": "Client created successfully"
+}
+
+### 8. WAREHOUSE STAFF LOGIN (Public - No Auth Required)
+POST http://app.xycargo.com/v1/auth/warehouse-staff/login HTTP/1.1
+Host: app.xycargo.com
+Connection: keep-alive
+Content-Type: application/json
+
+{
+    "email": "manager@xycargo.com",
+    "password": "staffpassword123"
+}
+
+### RESPONSE
+{
+  "code": 200,
+  "status": "success",
+  "data": {
+    "staff_id": 1,
+    "warehouse_id": 1,
+    "firstName": "Alice",
+    "lastName": "Johnson",
+    "email": "manager@xycargo.com",
+    "phone": "+233501234567",
+    "role": "Manager",
+    "status": "active",
+    "profile_picture": null,
+    "created_at": "2025-10-21 10:00:00",
+    "updated_at": "2025-10-21 10:00:00",
+    "warehouse_name": "Main Warehouse"
+  },
+  "user_type": "warehouse_staff",
+  "token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9..."
+}
+
+### 9. WAREHOUSE STAFF ACCESS PROTECTED ROUTE (With Bearer Token)
+GET http://app.xycargo.com/v1/warehouse-staff/profile HTTP/1.1
+Host: app.xycargo.com
+Connection: keep-alive
+Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...
+
+### RESPONSE
+{
+  "status": "success",
+  "message": "Warehouse staff profile accessed",
+  "user": {
+    "data": {
+      "staff_id": 1,
+      "warehouse_id": 1,
+      "firstName": "Alice",
+      "lastName": "Johnson",
+      "email": "manager@xycargo.com",
+      "phone": "+233501234567",
+      "role": "Manager",
+      "status": "active",
+      "profile_picture": null,
+      "created_at": "2025-10-21 10:00:00",
+      "updated_at": "2025-10-21 10:00:00",
+      "warehouse_name": "Main Warehouse"
+    },
+    "user_type": "warehouse_staff",
+    "iat": 1697880000,
+    "exp": 1697883600
+  }
+}
+
+### 10. CREATE WAREHOUSE STAFF (Admin Only - Should be Protected)
+POST http://app.xycargo.com/v1/warehouse-staff HTTP/1.1
+Host: app.xycargo.com
+Connection: keep-alive
+Content-Type: application/json
+Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...
+
+{
+    "warehouse_id": 1,
+    "firstName": "Bob",
+    "lastName": "Wilson",
+    "email": "bob.wilson@xycargo.com",
+    "phone": "+233509876543",
+    "password_hash": "$2y$10$hashedpasswordhere",
+    "role": "Supervisor",
+    "status": "active"
+}
+
+### RESPONSE
+{
+  "status": "success",
+  "code": 201,
+  "staff": {
+    "staff_id": 2,
+    "warehouse_id": 1,
+    "firstName": "Bob",
+    "lastName": "Wilson",
+    "email": "bob.wilson@xycargo.com",
+    "phone": "+233509876543",
+    "role": "Supervisor",
+    "status": "active",
+    "profile_picture": null,
+    "created_at": "2025-10-21 14:00:00",
+    "updated_at": "2025-10-21 14:00:00",
+    "warehouse_name": "Main Warehouse"
+  },
+  "message": "Warehouse staff member created successfully"
+}

@@ -86,6 +86,20 @@ class PaymentsController
     }
 
     /**
+     * Get all pending payments
+     */
+    public function getPendingPayments(): array
+    {
+        $payments = $this->paymentModel->getPendingPayments();
+        return [
+            'status' => !empty($payments) ? 'success' : 'error',
+            'payments' => $payments,
+            'message' => empty($payments) ? 'No pending payments found' : null,
+            'code' => !empty($payments) ? 200 : 404,
+        ];
+    }
+
+    /**
      * Create a new payment
      * Expected data: invoice_id, amount, payment_method, status?
      */

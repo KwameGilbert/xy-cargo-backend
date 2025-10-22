@@ -122,6 +122,28 @@ class PaymentModel
     }
 
     /**
+     * Get all pending payments
+     */
+    public function getPendingPayments(): array
+    {
+        try {
+            $sql = "SELECT payment_id, invoice_id, amount, payment_method, status, created_at, updated_at
+                    FROM {$this->tableName}
+                    WHERE status = 'pending'
+                    ORDER BY payment_id DESC";
+            $stmt = $this->db->prepare($sql);
+            if (!$this->executeQuery($stmt)) {
+                return [];
+            }
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            $this->lastError = 'Failed to get pending payments: ' . $e->getMessage();
+            error_log($this->lastError);
+            return [];
+        }
+    }
+
+    /**
      * Create a new payment
      * @param array{invoice_id:int,amount:float,payment_method:string,status?:string} $data
      * @return int|false Inserted payment_id or false on failure

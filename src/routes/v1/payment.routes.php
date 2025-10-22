@@ -39,6 +39,14 @@ return function ($app): void {
         return $response->withHeader('Content-Type', 'application/json')->withStatus($data['code']);
     });
 
+    // Get all pending payments
+    $app->get('/v1/payments/status/pending', function ($request, $response) use ($paymentController) {
+        $result = $paymentController->getPendingPayments();
+        $data = $result;
+        $response->getBody()->write(json_encode($result));
+        return $response->withHeader('Content-Type', 'application/json')->withStatus($data['code']);
+    });
+
     // Create a new payment
     // Expects: {"invoice_id": int, "amount": float, "payment_method": string, "status"?: string}
     $app->post('/v1/payments', function ($request, $response) use ($paymentController) {

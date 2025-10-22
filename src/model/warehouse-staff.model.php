@@ -301,6 +301,64 @@ class WarehouseStaffModel
     }
 
     /**
+     * Authenticate warehouse staff login
+     */
+    public function warehouseStaffLogin(string $email, string $password): ?array
+    {
+        try {
+            $staff = $this->getWarehouseStaffByEmail($email);
+            if (!$staff) {
+                $this->lastError = 'Staff member not found with this email';
+                return null;
+            }
+
+            // Check if staff member is active
+            if (isset($staff['status']) && $staff['status'] !== 'active') {
+                $this->lastError = 'Staff account is not active';
+                return null;
+            }
+
+            if (!password_verify($password, $staff['password_hash'])) {
+                $this->lastError = 'Invalid password';
+                return null;
+            }
+
+            // Remove password_hash from return for security
+            unset($staff['password_hash']);
+
+            return $staff;
+        } catch (PDOException $e) {
+            $this->lastError = 'Login failed: ' . $e->getMessage();
+            error_log($this->lastError);
+            return null;
+        }
+    }
+
+    /**
+     * Get warehouse staff by email
+     */
+    public function getWarehouseStaffByEmail(string $email): ?array
+    {
+        try {
+            $sql = "SELECT ws.staff_id, ws.warehouse_id, ws.firstName, ws.lastName, ws.email, ws.phone, ws.password_hash, ws.role, ws.status, ws.profile_picture, ws.created_at, ws.updated_at,
+                           w.name as warehouse_name
+                    FROM {$this->tableName} ws
+                    LEFT JOIN warehouses w ON ws.warehouse_id = w.warehouse_id
+                    WHERE ws.email = :email";
+            $stmt = $this->db->prepare($sql);
+            if (!$this->executeQuery($stmt, ['email' => $email])) {
+                return null;
+            }
+            $staff = $stmt->fetch(PDO::FETCH_ASSOC);
+            return $staff ?: null;
+        } catch (PDOException $e) {
+            $this->lastError = 'Failed to get warehouse staff by email: ' . $e->getMessage();
+            error_log($this->lastError);
+            return null;
+        }
+    }
+
+    /**
      * Delete a warehouse staff member by ID
      */
     public function deleteWarehouseStaff(int $staffId): bool

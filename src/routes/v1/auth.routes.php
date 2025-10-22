@@ -28,4 +28,17 @@ return function ($app): void {
         $response->getBody()->write($result);
         return $response->withHeader('Content-Type', 'application/json')->withStatus($data_response['code']);
     });
+
+    // Warehouse staff authentication
+    // Expects: {"email":"...", "password":"..."}
+    $app->post('/v1/auth/warehouse-staff/login', function ($request, $response) use ($authController) {
+        $data = json_decode((string) $request->getBody(), true) ?? [];
+        $email = $data['email'] ?? '';
+        $password = $data['password'] ?? '';
+
+        $result = $authController->authenticateWarehouseStaff($email, $password);
+        $data_response = json_decode($result, true);
+        $response->getBody()->write($result);
+        return $response->withHeader('Content-Type', 'application/json')->withStatus($data_response['code']);
+    });
 };

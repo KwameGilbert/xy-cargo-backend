@@ -1,3 +1,4 @@
+
 -- WAREHOUSES
 CREATE TABLE IF NOT EXISTS warehouses (
     warehouse_id INT AUTO_INCREMENT PRIMARY KEY,
@@ -152,20 +153,45 @@ CREATE TABLE IF NOT EXISTS warehouse_staff (
     INDEX idx_warehouse_id (warehouse_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- COUNTRIES
+CREATE TABLE IF NOT EXISTS countries (
+    country_id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    code VARCHAR(10) NOT NULL UNIQUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- CITIES
+CREATE TABLE IF NOT EXISTS cities (
+    city_id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    country_id INT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (country_id) REFERENCES countries(country_id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- RATE MANAGEMENT
 CREATE TABLE IF NOT EXISTS rate_management (
     rate_id INT AUTO_INCREMENT PRIMARY KEY,
-    type_id INT, -- Relates to shipment_types for specific service rates
+    type_id INT,
     name VARCHAR(255) NOT NULL,
-    zone VARCHAR(100), -- E.g., 'Domestic', 'Zone A', 'International'
+    rate_category VARCHAR(100) 
+    description TEXT,
+    origin_country_id INT,
+    origin_city_id INT,
+    destination_country_id INT,
+    destination_city_id INT,  
+    base_cost DECIMAL(10,2) NOT NULL,
+    cost_per_unit_weight DECIMAL(10,2),
     min_weight DECIMAL(10,2) NOT NULL,
     max_weight DECIMAL(10,2) NOT NULL,
-    base_cost DECIMAL(10,2) NOT NULL,
-    cost_per_unit_weight DECIMAL(10,2), -- Cost added per unit of weight (e.g., per kg)
-    is_active BOOLEAN DEFAULT TRUE,
+    status VARCHAR(50) DEFAULT 'active',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (type_id) REFERENCES shipment_types(type_id) ON DELETE SET NULL,
-    INDEX idx_zone (zone),
+    INDEX idx_origin (origin_country_id, origin_city_id),
+    INDEX idx_destination (destination_country_id, destination_city_id),
     INDEX idx_weight_range (min_weight, max_weight)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
