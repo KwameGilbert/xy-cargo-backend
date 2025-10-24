@@ -106,6 +106,16 @@ return function ($app): void {
 
         $clientId = (int) $user['data']->client_id;
         $parcelId = isset($args['id']) ? (int) $args['id'] : 0;
+        
+        if (!$parcelId) {
+            $response->getBody()->write(json_encode([
+                'status' => 'error',
+                'code' => 400,
+                'message' => 'Invalid parcel ID'
+            ]));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(400);
+        }
+        
         $result = $parcelController->getClientParcelById($clientId, $parcelId);
         $response->getBody()->write(json_encode($result));
         return $response->withHeader('Content-Type', 'application/json')->withStatus($result['code']);

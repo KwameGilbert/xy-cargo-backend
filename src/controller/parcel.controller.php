@@ -561,33 +561,42 @@ class ParcelsController
         $originWarehouse = '';
         $destinationWarehouse = '';
         $estimatedDelivery = null;
-        $currentLocation = '';
+        $currentLocation = 'Processing';
         
         if ($parcel['shipment_id']) {
             $shipment = $this->shipmentModel->getShipmentById($parcel['shipment_id']);
             if ($shipment) {
                 $waybillNumber = $shipment['waybill_number'] ?? '';
-                $originWarehouse = $shipment['origin_warehouse_id'] ? 'Warehouse ' . $shipment['origin_warehouse_id'] : '';
-                $destinationWarehouse = $shipment['destination_warehouse_id'] ? 'Warehouse ' . $shipment['destination_warehouse_id'] : '';
+                $originWarehouse = $shipment['origin_warehouse_id'] ? 'Warehouse ' . $shipment['origin_warehouse_id'] : 'N/A';
+                $destinationWarehouse = $shipment['destination_warehouse_id'] ? 'Warehouse ' . $shipment['destination_warehouse_id'] : 'N/A';
                 $estimatedDelivery = $shipment['expected_delivery'];
-                $currentLocation = $shipment['status'] === 'delivered' ? 'Delivered' : 'In Transit';
+                
+                // Map shipment status to location
+                $statusLocationMap = [
+                    'pending' => 'Processing at Origin',
+                    'in_transit' => 'In Transit',
+                    'at_destination' => 'At Destination Warehouse',
+                    'delivered' => 'Delivered',
+                    'delayed' => 'Delayed'
+                ];
+                $currentLocation = $statusLocationMap[$shipment['status']] ?? 'Processing';
             }
         }
 
         return [
-            'id' => $parcel['tracking_number'],
+            'id' => $parcel['parcel_id'],
             'waybillNumber' => $waybillNumber,
-            'trackingNumber' => $parcel['tracking_number'],
+            'trackingNumber' => $parcel['tracking_number'] ?? '',
             'description' => $parcel['description'] ?? '',
-            'weight' => (float) $parcel['weight'],
-            'dimensions' => $parcel['dimensions'] ?? '',
+            'weight' => (float) ($parcel['weight'] ?? 0),
+            'dimensions' => $parcel['dimensions'] ?? 'N/A',
             'status' => strtoupper($parcel['status']),
             'currentLocation' => $currentLocation,
-            'declaredValue' => (float) $parcel['declared_value'],
-            'shippingCost' => (float) $parcel['shipping_cost'],
+            'declaredValue' => (float) ($parcel['declared_value'] ?? 0),
+            'shippingCost' => (float) ($parcel['shipping_cost'] ?? 0),
             'paymentStatus' => strtoupper($parcel['payment_status']),
             'lastUpdate' => $parcel['updated_at'],
-            'category' => $parcel['category'] ?? '',
+            'category' => $parcel['category'] ?? 'General',
             'originWarehouse' => $originWarehouse,
             'destinationWarehouse' => $destinationWarehouse,
             'estimatedDelivery' => $estimatedDelivery,
@@ -604,71 +613,97 @@ class ParcelsController
         // Get parcel with all details
         $parcelDetails = $this->parcelModel->getParcelWithDetails($parcel['parcel_id']);
         
+        if (!$parcelDetails) {
+            return [];
+        }
+        
         // Get warehouse names
         $originWarehouse = null;
         $destinationWarehouse = null;
-        if ($parcelDetails['origin_warehouse_id']) {
-            // You'd need to implement warehouse model method to get warehouse by ID
-            // For now, just use IDs
+        if (isset($parcelDetails['origin_warehouse_id']) && $parcelDetails['origin_warehouse_id']) {
             $originWarehouse = 'Warehouse ' . $parcelDetails['origin_warehouse_id'];
         }
-        if ($parcelDetails['destination_warehouse_id']) {
+        if (isset($parcelDetails['destination_warehouse_id']) && $parcelDetails['destination_warehouse_id']) {
             $destinationWarehouse = 'Warehouse ' . $parcelDetails['destination_warehouse_id'];
         }
 
         // Get shipment info for tracking number and other details
+        $waybillNumber = '';
         $trackingNumber = '';
-        $currentLocation = '';
+        $currentLocation = 'Processing';
         $estimatedDelivery = null;
         $trackingHistory = [];
         
         if ($parcelDetails['shipment_id']) {
             $shipment = $this->shipmentModel->getShipmentById($parcelDetails['shipment_id']);
             if ($shipment) {
+                $waybillNumber = $shipment['waybill_number'] ?? '';
                 $trackingNumber = $shipment['tracking_number'] ?? '';
-                $currentLocation = $shipment['status'] === 'delivered' ? 'Delivered' : 'In Transit';
+                
+                // Map shipment status to location
+                $statusLocationMap = [
+                    'pending' => 'Processing at Origin',
+                    'in_transit' => 'In Transit',
+                    'at_destination' => 'At Destination Warehouse',
+                    'delivered' => 'Delivered',
+                    'delayed' => 'Delayed'
+                ];
+                $currentLocation = $statusLocationMap[$shipment['status']] ?? 'Processing';
                 $estimatedDelivery = $shipment['expected_delivery'];
                 
                 // Format tracking history
-                if (isset($parcelDetails['trackingHistory'])) {
+                if (isset($parcelDetails['trackingHistory']) && is_array($parcelDetails['trackingHistory'])) {
                     foreach ($parcelDetails['trackingHistory'] as $update) {
                         $trackingHistory[] = [
-                            'status' => ucfirst($update['status']),
+                            'status' => ucfirst(str_replace('_', ' ', $update['status'])),
                             'description' => $update['notes'] ?? 'Status update',
                             'location' => $update['location'] ?? 'Unknown',
                             'date' => $update['updated_at'],
                             'active' => $update['status'] === $shipment['status'],
-                            'handler' => 'XY Cargo'
+                            'handler' => 'XY Cargo Staff'
                         ];
                     }
                 }
             }
         }
+        
+        // Use parcel tracking number if shipment tracking is not available
+        if (empty($trackingNumber)) {
+            $trackingNumber = $parcelDetails['tracking_number'] ?? '';
+        }
 
         // Format items
         $formattedItems = [];
-        if (isset($parcelDetails['items'])) {
+        if (isset($parcelDetails['items']) && is_array($parcelDetails['items'])) {
             foreach ($parcelDetails['items'] as $item) {
+                $length = $item['length'] ?? 0;
+                $width = $item['width'] ?? 0;
+                $height = $item['height'] ?? 0;
+                $dimensions = $length && $width && $height 
+                    ? sprintf('%scm x %scm x %scm', $length, $width, $height)
+                    : 'N/A';
+                
                 $formattedItems[] = [
                     'id' => 'item-' . $item['item_id'],
                     'name' => $item['name'],
                     'description' => $item['description'] ?? '',
-                    'quantity' => (int) $item['quantity'],
-                    'weight' => (float) $item['weight'],
-                    'dimensions' => sprintf('%sx%sx%s', $item['length'] ?? 0, $item['width'] ?? 0, $item['height'] ?? 0),
-                    'declaredValue' => (float) $item['value'],
-                    'specialPackaging' => (bool) $item['special_packaging'],
+                    'quantity' => (int) ($item['quantity'] ?? 1),
+                    'weight' => (float) ($item['weight'] ?? 0),
+                    'dimensions' => $dimensions,
+                    'declaredValue' => (float) ($item['value'] ?? 0),
+                    'specialPackaging' => (bool) ($item['special_packaging'] ?? false),
                     'status' => 'Normal',
                     'category' => 'General',
                     'condition' => 'New',
-                    'notes' => ''
+                    'notes' => '',
+                    'separatedParcelId' => null
                 ];
             }
         }
 
         // Format documents
         $formattedDocuments = [];
-        if (isset($parcelDetails['documents'])) {
+        if (isset($parcelDetails['documents']) && is_array($parcelDetails['documents'])) {
             foreach ($parcelDetails['documents'] as $doc) {
                 $formattedDocuments[] = [
                     'type' => $doc['type'],
@@ -680,27 +715,27 @@ class ParcelsController
         }
 
         return [
-            'id' => $parcelDetails['tracking_number'],
-            'waybillNumber' => $parcelDetails['waybill_number'] ?? '',
-            'trackingNumber' => $trackingNumber,
+            'id' => $parcelDetails['parcel_id'],
+            'waybillNumber' => $waybillNumber,
             'trackingNumber' => $trackingNumber,
             'description' => $parcelDetails['description'] ?? '',
-            'weight' => (float) $parcelDetails['weight'],
-            'dimensions' => $parcelDetails['dimensions'] ?? '',
+            'weight' => (float) ($parcelDetails['weight'] ?? 0),
+            'dimensions' => $parcelDetails['dimensions'] ?? 'N/A',
             'status' => strtoupper($parcelDetails['status']),
             'currentLocation' => $currentLocation,
-            'declaredValue' => (float) $parcelDetails['declared_value'],
-            'shippingCost' => (float) $parcelDetails['shipping_cost'],
+            'declaredValue' => (float) ($parcelDetails['declared_value'] ?? 0),
+            'shippingCost' => (float) ($parcelDetails['shipping_cost'] ?? 0),
             'paymentStatus' => strtoupper($parcelDetails['payment_status']),
             'lastUpdate' => $parcelDetails['updated_at'],
-            'category' => $parcelDetails['category'] ?? '',
+            'category' => $parcelDetails['category'] ?? 'General',
             'notes' => $parcelDetails['notes'] ?? '',
-            'originWarehouse' => $originWarehouse,
-            'destinationWarehouse' => $destinationWarehouse,
+            'originWarehouse' => $originWarehouse ?? 'N/A',
+            'destinationWarehouse' => $destinationWarehouse ?? 'N/A',
             'estimatedDelivery' => $estimatedDelivery,
             'trackingHistory' => $trackingHistory,
             'items' => $formattedItems,
             'documents' => $formattedDocuments,
+            'separatedParcels' => [],
             'supportContacts' => [
                 [
                     'type' => 'Customer Service',

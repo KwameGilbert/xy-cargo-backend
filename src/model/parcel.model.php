@@ -437,7 +437,7 @@ class ParcelModel
         // Load shipment data and tracking if shipment_id exists
         if ($parcel['shipment_id']) {
             require_once MODEL . 'shipment.model.php';
-            require_once MODEL . 'shipment_tracking_update.model.php';
+            require_once MODEL . 'shipment-tracking-update.model.php';
             
             $shipmentModel = new ShipmentModel();
             $trackingModel = new ShipmentTrackingUpdateModel();
