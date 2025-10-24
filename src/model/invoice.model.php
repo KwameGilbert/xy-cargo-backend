@@ -242,4 +242,28 @@ class InvoiceModel
     {
         return $this->updateInvoice($invoiceId, ['status' => $status]);
     }
+
+    /**
+     * Get total unpaid amount for a client
+     * @param int $clientId
+     * @return float
+     */
+    public function getTotalUnpaidAmount(int $clientId): float
+    {
+        try {
+            $stmt = $this->db->prepare("
+                SELECT COALESCE(SUM(amount), 0) as total
+                FROM invoices
+                WHERE client_id = :client_id
+                AND status = 'unpaid'
+            ");
+            $stmt->execute(['client_id' => $clientId]);
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            return (float) ($result['total'] ?? 0);
+        } catch (PDOException $e) {
+            $this->lastError = 'Failed to get total unpaid amount: ' . $e->getMessage();
+            error_log($this->lastError);
+            return 0.0;
+        }
+    }
 }

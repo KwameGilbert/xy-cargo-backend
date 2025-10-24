@@ -45,6 +45,9 @@ $errorHandler = new ErrorHandler(
     $environment
 );
 
+// Folder where the application is located
+$app->setBasePath($_ENV['BASE_PATH']);
+
 // Configure error middleware with custom handler
 $errorMiddleware = $app->addErrorMiddleware(
     displayErrorDetails: $environment === 'development',

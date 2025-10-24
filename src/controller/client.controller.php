@@ -3,6 +3,10 @@
 declare(strict_types=1);
 
 require_once MODEL . 'client.model.php';
+require_once MODEL . 'shipment.model.php';
+require_once MODEL . 'parcel.model.php';
+require_once MODEL . 'invoice.model.php';
+require_once MODEL . 'payment.model.php';
 
 /**
  * ClientsController
@@ -13,10 +17,18 @@ require_once MODEL . 'client.model.php';
 class ClientsController
 {
     protected ClientsModel $clientModel;
+    protected ShipmentModel $shipmentModel;
+    protected ParcelModel $parcelModel;
+    protected InvoiceModel $invoiceModel;
+    protected PaymentModel $paymentModel;
 
     public function __construct()
     {
         $this->clientModel = new ClientsModel();
+        $this->shipmentModel = new ShipmentModel();
+        $this->parcelModel = new ParcelModel();
+        $this->invoiceModel = new InvoiceModel();
+        $this->paymentModel = new PaymentModel();
     }
 
     /**
@@ -326,5 +338,169 @@ class ClientsController
         }
 
         return null;
+    }
+
+    /**
+     * Get client dashboard data
+     * @param int $clientId
+     * @return string
+     */
+    public function getClientDashboard(int $clientId): string
+    {
+        try {
+            // Get metrics
+            $metrics = $this->getDashboardMetrics($clientId);
+
+            // Get recent shipments
+            $recentShipments = $this->getRecentShipments($clientId);
+
+            // Get notifications
+            $notifications = $this->getClientNotifications($clientId);
+
+            // Welcome message
+            $welcomeMessage = "Welcome back! Here's an overview of your shipments and account.";
+
+            $dashboardData = [
+                'metrics' => $metrics,
+                'recentShipments' => $recentShipments,
+                'notifications' => $notifications,
+                'welcomeMessage' => $welcomeMessage
+            ];
+
+            return json_encode([
+                'status' => 'success',
+                'code' => 200,
+                'data' => $dashboardData
+            ], JSON_PRETTY_PRINT);
+
+        } catch (Exception $e) {
+            return json_encode([
+                'status' => 'error',
+                'code' => 500,
+                'message' => 'Failed to load dashboard data: ' . $e->getMessage()
+            ], JSON_PRETTY_PRINT);
+        }
+    }
+
+    /**
+     * Get dashboard metrics for client
+     * @param int $clientId
+     * @return array
+     */
+    private function getDashboardMetrics(int $clientId): array
+    {
+        // Active shipments (not delivered)
+        $activeShipments = $this->shipmentModel->getActiveShipmentsCount($clientId);
+
+        // Pending payments (sum of unpaid invoice amounts)
+        $pendingPayments = $this->invoiceModel->getTotalUnpaidAmount($clientId);
+
+        // Delivered this month
+        $deliveredThisMonth = $this->shipmentModel->getDeliveredThisMonthCount($clientId);
+
+        // In warehouse items (parcels with status 'in_warehouse')
+        $inWarehouseItems = $this->parcelModel->getInWarehouseCount($clientId);
+
+        return [
+            'activeShipments' => [
+                'count' => (int) $activeShipments,
+                'icon' => 'package',
+                'label' => 'Active Shipments'
+            ],
+            'pendingPayments' => [
+                'count' => (float) $pendingPayments,
+                'currency' => '$',
+                'icon' => 'dollar',
+                'label' => 'Pending Payments'
+            ],
+            'deliveredThisMonth' => [
+                'count' => (int) $deliveredThisMonth,
+                'icon' => 'check',
+                'label' => 'Delivered This Month'
+            ],
+            'inWarehouse' => [
+                'count' => (int) $inWarehouseItems,
+                'icon' => 'box',
+                'label' => 'In Warehouse'
+            ]
+        ];
+    }
+
+    /**
+     * Get recent shipments for client
+     * @param int $clientId
+     * @return array
+     */
+    private function getRecentShipments(int $clientId): array
+    {
+        $shipments = $this->shipmentModel->getRecentShipmentsByClient($clientId, 5);
+
+        $result = [];
+        foreach ($shipments as $shipment) {
+            // Get destination city name if available
+            $destination = $shipment['destination_country'];
+            if (!empty($shipment['destination_city_id'])) {
+                // This would need to be implemented in the model to join with cities table
+                $cityName = $this->getCityName($shipment['destination_city_id']);
+                if ($cityName) {
+                    $destination = $cityName . ', ' . $shipment['destination_country'];
+                }
+            }
+
+            $result[] = [
+                'id' => $shipment['tracking_number'],
+                'status' => $shipment['status'],
+                'destination' => $destination,
+                'date' => date('Y-m-d', strtotime($shipment['created_at'])),
+                'statusColor' => $this->getStatusColor($shipment['status'])
+            ];
+        }
+
+        return $result;
+    }
+
+    /**
+     * Get client notifications
+     * @param int $clientId
+     * @return array
+     */
+    private function getClientNotifications(int $clientId): array
+    {
+        // For now, return empty array since we don't have the notification model yet
+        // This will be implemented when we create the ClientNotificationModel
+        return [];
+    }
+
+    /**
+     * Get city name by ID
+     * @param int $cityId
+     * @return string|null
+     */
+    private function getCityName(int $cityId): ?string
+    {
+        // This would need to be implemented - for now return null
+        // We'll need to create a CityModel or add this to an existing model
+        return null;
+    }
+
+    /**
+     * Get status color mapping
+     * @param string $status
+     * @return string
+     */
+    private function getStatusColor(string $status): string
+    {
+        $statusColors = [
+            'pending' => 'gray',
+            'processing' => 'yellow',
+            'in_transit' => 'blue',
+            'customs' => 'orange',
+            'out_for_delivery' => 'purple',
+            'delivered' => 'green',
+            'cancelled' => 'red',
+            'returned' => 'red'
+        ];
+
+        return $statusColors[$status] ?? 'gray';
     }
 }

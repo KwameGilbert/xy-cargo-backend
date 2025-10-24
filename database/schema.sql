@@ -1,3 +1,21 @@
+-- COUNTRIES
+CREATE TABLE IF NOT EXISTS countries (
+    country_id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    code VARCHAR(10) NOT NULL UNIQUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- CITIES
+CREATE TABLE IF NOT EXISTS cities (
+    city_id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    country_id INT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (country_id) REFERENCES countries(country_id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- WAREHOUSES
 CREATE TABLE IF NOT EXISTS warehouses (
@@ -7,28 +25,6 @@ CREATE TABLE IF NOT EXISTS warehouses (
     status VARCHAR(50) DEFAULT 'active',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- SHIPMENTS (Must be defined before parcels or tracking updates that reference it)
-CREATE TABLE IF NOT EXISTS shipments (
-    shipment_id INT AUTO_INCREMENT PRIMARY KEY,
-    tracking_number VARCHAR(100) UNIQUE,
-    origin_country VARCHAR(100),
-    destination_country VARCHAR(100),
-    departure_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    arrival_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    status VARCHAR(50) DEFAULT 'pending',
-    priority VARCHAR(50) DEFAULT 'normal',
-    warehouse_id INT,
-    shipped_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    expected_delivery TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    delivered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    notes TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (warehouse_id) REFERENCES warehouses(warehouse_id) ON DELETE SET NULL,
-    INDEX idx_tracking_number (tracking_number),
-    INDEX idx_warehouse_id (warehouse_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- CLIENTS
@@ -46,11 +42,54 @@ CREATE TABLE IF NOT EXISTS clients (
     INDEX idx_email (email)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- SHIPMENT TYPES
+CREATE TABLE IF NOT EXISTS shipment_types (
+    type_id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    description TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- SHIPMENTS (Must be defined before parcels or tracking updates that reference it)
+CREATE TABLE IF NOT EXISTS shipments (
+    shipment_id INT AUTO_INCREMENT PRIMARY KEY,
+    tracking_number VARCHAR(100) UNIQUE,
+    waybill_number VARCHAR(100) UNIQUE,
+    origin_country VARCHAR(100),
+    destination_country VARCHAR(100),
+    destination_city_id INT,
+    departure_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    arrival_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    status VARCHAR(50) DEFAULT 'pending',
+    priority VARCHAR(50) DEFAULT 'normal',
+    origin_warehouse_id INT,
+    destination_warehouse_id INT,
+    warehouse_id INT,
+    shipped_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    expected_delivery TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    delivered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (origin_warehouse_id) REFERENCES warehouses(warehouse_id) ON DELETE SET NULL,
+    FOREIGN KEY (destination_warehouse_id) REFERENCES warehouses(warehouse_id) ON DELETE SET NULL,
+    FOREIGN KEY (warehouse_id) REFERENCES warehouses(warehouse_id) ON DELETE SET NULL,
+    FOREIGN KEY (destination_city_id) REFERENCES cities(city_id) ON DELETE SET NULL,
+    INDEX idx_tracking_number (tracking_number),
+    INDEX idx_waybill_number (waybill_number),
+    INDEX idx_origin_warehouse (origin_warehouse_id),
+    INDEX idx_destination_warehouse (destination_warehouse_id),
+    INDEX idx_warehouse_id (warehouse_id),
+    INDEX idx_destination_city (destination_city_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- PARCELS
 CREATE TABLE IF NOT EXISTS parcels (
     parcel_id INT AUTO_INCREMENT PRIMARY KEY,
     client_id INT NOT NULL,
     shipment_id INT,
+    tracking_number VARCHAR(100) UNIQUE,
     description TEXT,
     weight DECIMAL(10,2),
     dimensions VARCHAR(100),
@@ -58,12 +97,15 @@ CREATE TABLE IF NOT EXISTS parcels (
     declared_value DECIMAL(10,2),
     shipping_cost DECIMAL(10,2),
     payment_status VARCHAR(50) DEFAULT 'unpaid',
+    category VARCHAR(100),
+    notes TEXT,
     tags JSON,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (client_id) REFERENCES clients(client_id) ON DELETE CASCADE,
     FOREIGN KEY (shipment_id) REFERENCES shipments(shipment_id) ON DELETE CASCADE,
-    INDEX idx_client_id (client_id)
+    INDEX idx_client_id (client_id),
+    INDEX idx_tracking_number (tracking_number)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- PARCEL ITEMS
@@ -82,6 +124,18 @@ CREATE TABLE IF NOT EXISTS parcel_items (
     special_packaging BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (parcel_id) REFERENCES parcels(parcel_id) ON DELETE CASCADE,
+    INDEX idx_parcel_id (parcel_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- PARCEL DOCUMENTS
+CREATE TABLE IF NOT EXISTS parcel_documents (
+    document_id INT AUTO_INCREMENT PRIMARY KEY,
+    parcel_id INT NOT NULL,
+    type VARCHAR(50) NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    url VARCHAR(500) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (parcel_id) REFERENCES parcels(parcel_id) ON DELETE CASCADE,
     INDEX idx_parcel_id (parcel_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -126,13 +180,24 @@ CREATE TABLE IF NOT EXISTS payments (
     INDEX idx_invoice_id (invoice_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- SHIPMENT TYPES
-CREATE TABLE IF NOT EXISTS shipment_types (
-    type_id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(100) NOT NULL,
-    description TEXT,
+-- CLIENT NOTIFICATIONS
+CREATE TABLE IF NOT EXISTS client_notifications (
+    notification_id INT AUTO_INCREMENT PRIMARY KEY,
+    client_id INT NOT NULL,
+    type VARCHAR(50) NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    message TEXT NOT NULL,
+    reference_id INT, -- Can reference shipment_id, invoice_id, etc.
+    reference_type VARCHAR(50), -- 'shipment', 'invoice', 'payment', etc.
+    is_read BOOLEAN DEFAULT FALSE,
+    icon VARCHAR(50) DEFAULT 'bell',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (client_id) REFERENCES clients(client_id) ON DELETE CASCADE,
+    INDEX idx_client_id (client_id),
+    INDEX idx_type (type),
+    INDEX idx_is_read (is_read),
+    INDEX idx_created_at (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- WAREHOUSE STAFF
@@ -153,31 +218,12 @@ CREATE TABLE IF NOT EXISTS warehouse_staff (
     INDEX idx_warehouse_id (warehouse_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- COUNTRIES
-CREATE TABLE IF NOT EXISTS countries (
-    country_id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(100) NOT NULL,
-    code VARCHAR(10) NOT NULL UNIQUE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- CITIES
-CREATE TABLE IF NOT EXISTS cities (
-    city_id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(100) NOT NULL,
-    country_id INT NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (country_id) REFERENCES countries(country_id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
 -- RATE MANAGEMENT
 CREATE TABLE IF NOT EXISTS rate_management (
     rate_id INT AUTO_INCREMENT PRIMARY KEY,
     type_id INT,
     name VARCHAR(255) NOT NULL,
-    rate_category VARCHAR(100) 
+    rate_category VARCHAR(100),
     description TEXT,
     origin_country_id INT,
     origin_city_id INT,

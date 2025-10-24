@@ -13,8 +13,9 @@ class JwtHelper
         }
         
         $issuedAt = time();
-        $payload['iat'] = $issuedAt;
-        $payload['exp'] = $issuedAt + $expirySeconds;
+        $payload['issuer'] = $_SERVER['HTTP_HOST'] ?? $_ENV['APP_NAME'];
+        $payload['issued_at'] = $issuedAt;
+        $payload['expires_at'] = $issuedAt + $expirySeconds;
         $token = JWT::encode($payload, $_ENV['JWT_SECRET'], $_ENV['JWT_ALGORITHM']);
         return $token;
     }

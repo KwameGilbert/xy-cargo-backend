@@ -1,4 +1,4 @@
-### CREATE NEWW CLIENT
+### CREATE NEW CLIENT
 POST http://app.xycargo.com/v1/clients HTTP/1.1
 Host: app.xycargo.com
 Connection: keep-alive
@@ -33,8 +33,12 @@ Content-Type: application/json
   "message": "Client created successfully"
 }
 
+### GET DASHBOARD DATA
+GET http://app.xycargo.com/v1/clients/dashboard/data HTTP/1.1
+Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJkYXRhIjp7ImNsaWVudF9pZCI6MywiZmlyc3ROYW1lIjoiR2lsYmVydCBFbGlrcGxpbSIsImxhc3ROYW1lIjoiS3VrYWgiLCJlbWFpbCI6ImdrdWthaDFAZ21haWwuY29tIiwicGhvbmUiOiIwNTQxNDM2NDE0IiwiYWRkcmVzcyI6IkhvIiwiY29tcGFueSI6Ik5vbGV4IiwiY3JlYXRlZF9hdCI6IjIwMjUtMTAtMjAgMTI6NTk6MjQiLCJ1cGRhdGVkX2F0IjoiMjAyNS0xMC0yMCAxMjo1OToyNCJ9LCJpc3N1ZXIiOiJhcHAueHljYXJnby5jb20iLCJpc3N1ZWRfYXQiOjE3NjEzMDE3NjIsImV4cGlyZXNfYXQiOjE3NjEzMDUzNjJ9.lZSl1TuaSi-7TBfvNBKKn_BNQeuLo1S_feB3Lz9War8
+
 ### GET CLIENT BY ID
-GET http://app.xycargo.com/v1/clients/1 HTTP/1.1
+GET http://app.xycargo.com/v1/clients/3 HTTP/1.1
 Host: app.xycargo.com
 Connection: keep-alive
 

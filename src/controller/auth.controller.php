@@ -12,15 +12,18 @@ declare(strict_types=1);
 require_once MODEL . '/client.model.php';
 require_once MODEL . '/warehouse-staff.model.php';
 require_once HELPER . '/JwtHelper.php';
+require_once CONTROLLER . '/client.controller.php';
 
 class AuthController{
     protected ClientsModel $clientModel;
     protected WarehouseStaffModel $warehouseStaffModel;
+    protected ClientsController $clientsController;
 
     public function __construct()
     {
         $this->clientModel = new ClientsModel();
         $this->warehouseStaffModel = new WarehouseStaffModel();
+        $this->clientsController = new ClientsController();
     }
 
     /**
@@ -57,7 +60,7 @@ class AuthController{
 
         require_once HELPER . '/JwtHelper.php';
         // Generate a JWT token for the authenticated client
-        $payload =['data' => $client];
+        $payload = ['data' => $client];
         $token = JwtHelper::generateToken($payload);
         return json_encode([
             'code' => 200,
@@ -116,34 +119,7 @@ class AuthController{
      * Sign Up Client
      */
     public function clientSignUp($data): string {
-        // Validate required fields
-        $requiredFields = ['firstName', 'lastName', 'email', 'phone', 'password'];
-        foreach ($requiredFields as $field) {
-            if (!isset($data[$field]) || $data[$field] === '') {
-                return json_encode([
-                    'code' => 400,
-                    'status' => 'error',
-                    'message' => "Field '{$field}' is required."
-                ], JSON_PRETTY_PRINT);
-            }
-        }
-          
-        // Create the new client
-        $newClient = $this->clientModel->createClient($data);
-        if ($newClient === false) {
-            return json_encode([
-                'code' => 500,
-                'status' => 'error',
-                'client' => null,
-                'message' => 'Failed to create client: ' . $this->clientModel->getLastError(),
-            ], JSON_PRETTY_PRINT);
-        }
-        $newClient = $this->clientModel->getClientById((int)$newClient);
-        return json_encode([
-            'code' => 201,
-            'status' => 'success',
-            'client' => $newClient,
-            'message' => 'Client created successfully',
-        ], JSON_PRETTY_PRINT);
-        }
+        // Delegate to ClientsController::createClient
+        return $this->clientsController->createClient($data);
+    }
 };

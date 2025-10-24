@@ -170,6 +170,57 @@ class ParcelsController
     }
 
     /**
+     * Get parcel tracking by tracking number
+     */
+    public function getParcelTracking(string $trackingNumber): array
+    {
+        if (!$trackingNumber) {
+            return [
+                'status' => 'error',
+                'code' => 400,
+                'message' => 'Tracking number is required'
+            ];
+        }
+
+        $parcel = $this->parcelModel->getParcelByTrackingNumber($trackingNumber);
+        if (!$parcel) {
+            return [
+                'status' => 'error',
+                'code' => 404,
+                'message' => 'Parcel not found with this tracking number'
+            ];
+        }
+
+        // Get shipment tracking updates
+        $trackingHistory = [];
+        if ($parcel['shipment_id']) {
+            require_once MODEL . 'shipment_tracking_update.model.php';
+            $trackingModel = new ShipmentTrackingUpdateModel();
+            $updates = $trackingModel->getTrackingUpdatesByShipmentId($parcel['shipment_id']);
+            
+            foreach ($updates as $update) {
+                $trackingHistory[] = [
+                    'status' => ucfirst($update['status']),
+                    'description' => $update['notes'] ?? 'Status update',
+                    'location' => $update['location'] ?? 'Unknown',
+                    'date' => $update['updated_at'],
+                    'handler' => 'XY Cargo'
+                ];
+            }
+        }
+
+        return [
+            'status' => 'success',
+            'code' => 200,
+            'trackingNumber' => $trackingNumber,
+            'parcelId' => $parcel['parcel_id'],
+            'currentStatus' => strtoupper($parcel['status']),
+            'trackingHistory' => $trackingHistory,
+            'message' => null
+        ];
+    }
+
+    /**
      * Create a new parcel (with optional items)
      * Expected data: client_id, shipment_id, description?, weight?, dimensions?, declared_value?, shipping_cost?, payment_status?, tags?, items?[]
      */
@@ -435,6 +486,235 @@ class ParcelsController
             'status' => $deleted ? 'success' : 'error',
             'code' => $deleted ? 200 : 500,
             'message' => $deleted ? 'Item deleted successfully' : ('Failed to delete item: ' . $this->itemModel->getLastError()),
+        ];
+    }
+
+    /**
+     * Get parcels for a client (formatted for frontend)
+     */
+    public function getClientParcels(int $clientId): array
+    {
+        if (!$clientId) {
+            return [
+                'status' => 'error',
+                'code' => 400,
+                'message' => 'Invalid client ID'
+            ];
+        }
+
+        $parcels = $this->parcelModel->getParcelsByClientId($clientId);
+        
+        // Format parcels for frontend
+        $formattedParcels = [];
+        foreach ($parcels as $parcel) {
+            $formattedParcels[] = $this->formatParcelForClient($parcel);
+        }
+
+        return [
+            'status' => 'success',
+            'code' => 200,
+            'parcels' => $formattedParcels,
+            'message' => null
+        ];
+    }
+
+    /**
+     * Get parcel details for a client (formatted for frontend)
+     */
+    public function getClientParcelById(int $clientId, int $parcelId): array
+    {
+        if (!$clientId || !$parcelId) {
+            return [
+                'status' => 'error',
+                'code' => 400,
+                'message' => 'Invalid client ID or parcel ID'
+            ];
+        }
+
+        // Verify parcel belongs to client
+        $parcel = $this->parcelModel->getParcelById($parcelId);
+        if (!$parcel || $parcel['client_id'] != $clientId) {
+            return [
+                'status' => 'error',
+                'code' => 404,
+                'message' => 'Parcel not found'
+            ];
+        }
+
+        $formattedParcel = $this->formatParcelDetailsForClient($parcel);
+
+        return [
+            'status' => 'success',
+            'code' => 200,
+            'parcel' => $formattedParcel,
+            'message' => null
+        ];
+    }
+
+    /**
+     * Format parcel data for client parcels list
+     */
+    private function formatParcelForClient(array $parcel): array
+    {
+        // Get shipment data if available
+        $waybillNumber = '';
+        $originWarehouse = '';
+        $destinationWarehouse = '';
+        $estimatedDelivery = null;
+        $currentLocation = '';
+        
+        if ($parcel['shipment_id']) {
+            $shipment = $this->shipmentModel->getShipmentById($parcel['shipment_id']);
+            if ($shipment) {
+                $waybillNumber = $shipment['waybill_number'] ?? '';
+                $originWarehouse = $shipment['origin_warehouse_id'] ? 'Warehouse ' . $shipment['origin_warehouse_id'] : '';
+                $destinationWarehouse = $shipment['destination_warehouse_id'] ? 'Warehouse ' . $shipment['destination_warehouse_id'] : '';
+                $estimatedDelivery = $shipment['expected_delivery'];
+                $currentLocation = $shipment['status'] === 'delivered' ? 'Delivered' : 'In Transit';
+            }
+        }
+
+        return [
+            'id' => $parcel['tracking_number'],
+            'waybillNumber' => $waybillNumber,
+            'trackingNumber' => $parcel['tracking_number'],
+            'description' => $parcel['description'] ?? '',
+            'weight' => (float) $parcel['weight'],
+            'dimensions' => $parcel['dimensions'] ?? '',
+            'status' => strtoupper($parcel['status']),
+            'currentLocation' => $currentLocation,
+            'declaredValue' => (float) $parcel['declared_value'],
+            'shippingCost' => (float) $parcel['shipping_cost'],
+            'paymentStatus' => strtoupper($parcel['payment_status']),
+            'lastUpdate' => $parcel['updated_at'],
+            'category' => $parcel['category'] ?? '',
+            'originWarehouse' => $originWarehouse,
+            'destinationWarehouse' => $destinationWarehouse,
+            'estimatedDelivery' => $estimatedDelivery,
+            'created_at' => $parcel['created_at'],
+            'updated_at' => $parcel['updated_at']
+        ];
+    }
+
+    /**
+     * Format parcel data for client parcel details
+     */
+    private function formatParcelDetailsForClient(array $parcel): array
+    {
+        // Get parcel with all details
+        $parcelDetails = $this->parcelModel->getParcelWithDetails($parcel['parcel_id']);
+        
+        // Get warehouse names
+        $originWarehouse = null;
+        $destinationWarehouse = null;
+        if ($parcelDetails['origin_warehouse_id']) {
+            // You'd need to implement warehouse model method to get warehouse by ID
+            // For now, just use IDs
+            $originWarehouse = 'Warehouse ' . $parcelDetails['origin_warehouse_id'];
+        }
+        if ($parcelDetails['destination_warehouse_id']) {
+            $destinationWarehouse = 'Warehouse ' . $parcelDetails['destination_warehouse_id'];
+        }
+
+        // Get shipment info for tracking number and other details
+        $trackingNumber = '';
+        $currentLocation = '';
+        $estimatedDelivery = null;
+        $trackingHistory = [];
+        
+        if ($parcelDetails['shipment_id']) {
+            $shipment = $this->shipmentModel->getShipmentById($parcelDetails['shipment_id']);
+            if ($shipment) {
+                $trackingNumber = $shipment['tracking_number'] ?? '';
+                $currentLocation = $shipment['status'] === 'delivered' ? 'Delivered' : 'In Transit';
+                $estimatedDelivery = $shipment['expected_delivery'];
+                
+                // Format tracking history
+                if (isset($parcelDetails['trackingHistory'])) {
+                    foreach ($parcelDetails['trackingHistory'] as $update) {
+                        $trackingHistory[] = [
+                            'status' => ucfirst($update['status']),
+                            'description' => $update['notes'] ?? 'Status update',
+                            'location' => $update['location'] ?? 'Unknown',
+                            'date' => $update['updated_at'],
+                            'active' => $update['status'] === $shipment['status'],
+                            'handler' => 'XY Cargo'
+                        ];
+                    }
+                }
+            }
+        }
+
+        // Format items
+        $formattedItems = [];
+        if (isset($parcelDetails['items'])) {
+            foreach ($parcelDetails['items'] as $item) {
+                $formattedItems[] = [
+                    'id' => 'item-' . $item['item_id'],
+                    'name' => $item['name'],
+                    'description' => $item['description'] ?? '',
+                    'quantity' => (int) $item['quantity'],
+                    'weight' => (float) $item['weight'],
+                    'dimensions' => sprintf('%sx%sx%s', $item['length'] ?? 0, $item['width'] ?? 0, $item['height'] ?? 0),
+                    'declaredValue' => (float) $item['value'],
+                    'specialPackaging' => (bool) $item['special_packaging'],
+                    'status' => 'Normal',
+                    'category' => 'General',
+                    'condition' => 'New',
+                    'notes' => ''
+                ];
+            }
+        }
+
+        // Format documents
+        $formattedDocuments = [];
+        if (isset($parcelDetails['documents'])) {
+            foreach ($parcelDetails['documents'] as $doc) {
+                $formattedDocuments[] = [
+                    'type' => $doc['type'],
+                    'name' => $doc['name'],
+                    'url' => $doc['url'],
+                    'createdDate' => $doc['created_at']
+                ];
+            }
+        }
+
+        return [
+            'id' => $parcelDetails['tracking_number'],
+            'waybillNumber' => $parcelDetails['waybill_number'] ?? '',
+            'trackingNumber' => $trackingNumber,
+            'trackingNumber' => $trackingNumber,
+            'description' => $parcelDetails['description'] ?? '',
+            'weight' => (float) $parcelDetails['weight'],
+            'dimensions' => $parcelDetails['dimensions'] ?? '',
+            'status' => strtoupper($parcelDetails['status']),
+            'currentLocation' => $currentLocation,
+            'declaredValue' => (float) $parcelDetails['declared_value'],
+            'shippingCost' => (float) $parcelDetails['shipping_cost'],
+            'paymentStatus' => strtoupper($parcelDetails['payment_status']),
+            'lastUpdate' => $parcelDetails['updated_at'],
+            'category' => $parcelDetails['category'] ?? '',
+            'notes' => $parcelDetails['notes'] ?? '',
+            'originWarehouse' => $originWarehouse,
+            'destinationWarehouse' => $destinationWarehouse,
+            'estimatedDelivery' => $estimatedDelivery,
+            'trackingHistory' => $trackingHistory,
+            'items' => $formattedItems,
+            'documents' => $formattedDocuments,
+            'supportContacts' => [
+                [
+                    'type' => 'Customer Service',
+                    'phone' => '+1 (555) 123-4567',
+                    'email' => 'support@xycargo.com',
+                    'hours' => '24/7'
+                ],
+                [
+                    'type' => 'Warehouse',
+                    'phone' => '+1 (555) 987-6543',
+                    'email' => 'warehouse@xycargo.com',
+                    'hours' => 'Mon-Fri 8AM-6PM'
+                ]
+            ]
         ];
     }
 }
