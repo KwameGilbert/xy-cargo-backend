@@ -75,7 +75,7 @@ return function ($app): void {
     })->add(new AuthMiddleware());
 
     // Get authenticated client profile (protected)
-    $app->get('/v1/clients/profile', function ($request, $response) use ($clientController) {
+    $app->get('/v1/clients/profile/data', function ($request, $response) use ($clientController) {
         $user = $request->getAttribute('user');
         if (!$user) {
             $response->getBody()->write(json_encode([
@@ -215,5 +215,79 @@ return function ($app): void {
         $response->getBody()->write($result);
         return $response->withHeader('Content-Type', 'application/json')->withStatus($data['code']);
     });
- 
+
+    // Get client notifications (protected)
+    $app->get('/v1/clients/notifications/data', function ($request, $response) use ($clientController) {
+        $user = $request->getAttribute('user');
+        if (!$user) {
+            $response->getBody()->write(json_encode([
+                'status' => 'error',
+                'code' => 401,
+                'message' => 'Unauthorized access'
+            ]));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(401);
+        }
+
+        $clientId = (int) $user['data']->client_id;
+        $result = $clientController->getNotifications($clientId);
+        $response->getBody()->write(json_encode($result));
+        return $response->withHeader('Content-Type', 'application/json')->withStatus($result['code']);
+    })->add(new AuthMiddleware());
+
+    // Mark notification as read (protected)
+    $app->patch('/v1/clients/notifications/{id}/read', function ($request, $response, $args) use ($clientController) {
+        $user = $request->getAttribute('user');
+        if (!$user) {
+            $response->getBody()->write(json_encode([
+                'status' => 'error',
+                'code' => 401,
+                'message' => 'Unauthorized access'
+            ]));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(401);
+        }
+
+        $clientId = (int) $user['data']->client_id;
+        $notificationId = isset($args['id']) ? (int) $args['id'] : 0;
+        $result = $clientController->markNotificationAsRead($clientId, $notificationId);
+        $response->getBody()->write(json_encode($result));
+        return $response->withHeader('Content-Type', 'application/json')->withStatus($result['code']);
+    })->add(new AuthMiddleware());
+
+    // Mark all notifications as read (protected)
+    $app->patch('/v1/clients/notifications/mark-all-read', function ($request, $response) use ($clientController) {
+        $user = $request->getAttribute('user');
+        if (!$user) {
+            $response->getBody()->write(json_encode([
+                'status' => 'error',
+                'code' => 401,
+                'message' => 'Unauthorized access'
+            ]));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(401);
+        }
+
+        $clientId = (int) $user['data']->client_id;
+        $result = $clientController->markAllNotificationsAsRead($clientId);
+        $response->getBody()->write(json_encode($result));
+        return $response->withHeader('Content-Type', 'application/json')->withStatus($result['code']);
+    })->add(new AuthMiddleware());
+
+    // Delete notification (protected)
+    $app->delete('/v1/clients/notifications/{id}', function ($request, $response, $args) use ($clientController) {
+        $user = $request->getAttribute('user');
+        if (!$user) {
+            $response->getBody()->write(json_encode([
+                'status' => 'error',
+                'code' => 401,
+                'message' => 'Unauthorized access'
+            ]));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(401);
+        }
+
+        $clientId = (int) $user['data']->client_id;
+        $notificationId = isset($args['id']) ? (int) $args['id'] : 0;
+        $result = $clientController->deleteNotification($clientId, $notificationId);
+        $response->getBody()->write(json_encode($result));
+        return $response->withHeader('Content-Type', 'application/json')->withStatus($result['code']);
+    })->add(new AuthMiddleware());
+    
 };

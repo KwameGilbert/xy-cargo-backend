@@ -7,6 +7,7 @@ require_once MODEL . 'shipment.model.php';
 require_once MODEL . 'parcel.model.php';
 require_once MODEL . 'invoice.model.php';
 require_once MODEL . 'payment.model.php';
+require_once MODEL . 'client-notification.model.php';
 
 /**
  * ClientsController
@@ -21,6 +22,7 @@ class ClientsController
     protected ParcelModel $parcelModel;
     protected InvoiceModel $invoiceModel;
     protected PaymentModel $paymentModel;
+    protected ClientNotificationModel $notificationModel;
 
     public function __construct()
     {
@@ -29,6 +31,7 @@ class ClientsController
         $this->parcelModel = new ParcelModel();
         $this->invoiceModel = new InvoiceModel();
         $this->paymentModel = new PaymentModel();
+        $this->notificationModel = new ClientNotificationModel();
     }
 
     /**
@@ -512,9 +515,123 @@ class ClientsController
      */
     private function getClientNotifications(int $clientId): array
     {
-        // For now, return empty array since we don't have the notification model yet
-        // This will be implemented when we create the ClientNotificationModel
-        return [];
+        return $this->notificationModel->getClientNotifications($clientId);
+    }
+
+    /**
+     * Get client notifications (public method for API)
+     */
+    public function getNotifications(int $clientId): array
+    {
+        if (!$clientId) {
+            return [
+                'status' => 'error',
+                'code' => 400,
+                'message' => 'Invalid client ID'
+            ];
+        }
+
+        $notifications = $this->notificationModel->getClientNotifications($clientId);
+        $unreadCount = $this->notificationModel->getUnreadCount($clientId);
+
+        return [
+            'status' => 'success',
+            'code' => 200,
+            'data' => [
+                'notifications' => $notifications,
+                'unread_count' => $unreadCount
+            ]
+        ];
+    }
+
+    /**
+     * Mark notification as read
+     */
+    public function markNotificationAsRead(int $clientId, int $notificationId): array
+    {
+        if (!$clientId || !$notificationId) {
+            return [
+                'status' => 'error',
+                'code' => 400,
+                'message' => 'Invalid client ID or notification ID'
+            ];
+        }
+
+        $success = $this->notificationModel->markAsRead($notificationId, $clientId);
+
+        if ($success) {
+            return [
+                'status' => 'success',
+                'code' => 200,
+                'message' => 'Notification marked as read'
+            ];
+        } else {
+            return [
+                'status' => 'error',
+                'code' => 500,
+                'message' => 'Failed to mark notification as read'
+            ];
+        }
+    }
+
+    /**
+     * Mark all notifications as read
+     */
+    public function markAllNotificationsAsRead(int $clientId): array
+    {
+        if (!$clientId) {
+            return [
+                'status' => 'error',
+                'code' => 400,
+                'message' => 'Invalid client ID'
+            ];
+        }
+
+        $success = $this->notificationModel->markAllAsRead($clientId);
+
+        if ($success) {
+            return [
+                'status' => 'success',
+                'code' => 200,
+                'message' => 'All notifications marked as read'
+            ];
+        } else {
+            return [
+                'status' => 'error',
+                'code' => 500,
+                'message' => 'Failed to mark all notifications as read'
+            ];
+        }
+    }
+
+    /**
+     * Delete notification
+     */
+    public function deleteNotification(int $clientId, int $notificationId): array
+    {
+        if (!$clientId || !$notificationId) {
+            return [
+                'status' => 'error',
+                'code' => 400,
+                'message' => 'Invalid client ID or notification ID'
+            ];
+        }
+
+        $success = $this->notificationModel->deleteNotification($notificationId, $clientId);
+
+        if ($success) {
+            return [
+                'status' => 'success',
+                'code' => 200,
+                'message' => 'Notification deleted'
+            ];
+        } else {
+            return [
+                'status' => 'error',
+                'code' => 500,
+                'message' => 'Failed to delete notification'
+            ];
+        }
     }
 
     /**
