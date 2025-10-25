@@ -74,6 +74,24 @@ return function ($app): void {
         return $response->withHeader('Content-Type', 'application/json')->withStatus($data_response['code']);
     })->add(new AuthMiddleware());
 
+    // Get authenticated client profile (protected)
+    $app->get('/v1/clients/profile', function ($request, $response) use ($clientController) {
+        $user = $request->getAttribute('user');
+        if (!$user) {
+            $response->getBody()->write(json_encode([
+                'status' => 'error',
+                'code' => 401,
+                'message' => 'Unauthorized access'
+            ]));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(401);
+        }
+
+        $clientId = (int) $user['data']->client_id;
+        $result = $clientController->getClientProfileData($clientId);
+        $response->getBody()->write(json_encode($result));
+        return $response->withHeader('Content-Type', 'application/json')->withStatus($result['code']);
+    })->add(new AuthMiddleware());
+
     // Get parcels for authenticated client (protected)
     $app->get('/v1/clients/parcels/data', function ($request, $response) use ($parcelController) {
         $user = $request->getAttribute('user');
@@ -117,6 +135,53 @@ return function ($app): void {
         }
         
         $result = $parcelController->getClientParcelById($clientId, $parcelId);
+        $response->getBody()->write(json_encode($result));
+        return $response->withHeader('Content-Type', 'application/json')->withStatus($result['code']);
+    })->add(new AuthMiddleware());
+
+    // Get client payments data (invoices and payment history) - protected
+    $app->get('/v1/clients/payments/data', function ($request, $response) use ($clientController) {
+        $user = $request->getAttribute('user');
+        if (!$user) {
+            $response->getBody()->write(json_encode([
+                'status' => 'error',
+                'code' => 401,
+                'message' => 'Unauthorized access'
+            ]));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(401);
+        }
+
+        $clientId = (int) $user['data']->client_id;
+        $result = $clientController->getClientPaymentsData($clientId);
+        $response->getBody()->write(json_encode($result));
+        return $response->withHeader('Content-Type', 'application/json')->withStatus($result['code']);
+    })->add(new AuthMiddleware());
+
+    // Get single invoice details for authenticated client - protected
+    $app->get('/v1/clients/invoices/{id}', function ($request, $response, $args) use ($clientController) {
+        $user = $request->getAttribute('user');
+        if (!$user) {
+            $response->getBody()->write(json_encode([
+                'status' => 'error',
+                'code' => 401,
+                'message' => 'Unauthorized access'
+            ]));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(401);
+        }
+
+        $clientId = (int) $user['data']->client_id;
+        $invoiceId = isset($args['id']) ? (int) $args['id'] : 0;
+        
+        if (!$invoiceId) {
+            $response->getBody()->write(json_encode([
+                'status' => 'error',
+                'code' => 400,
+                'message' => 'Invalid invoice ID'
+            ]));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(400);
+        }
+        
+        $result = $clientController->getClientInvoiceById($clientId, $invoiceId);
         $response->getBody()->write(json_encode($result));
         return $response->withHeader('Content-Type', 'application/json')->withStatus($result['code']);
     })->add(new AuthMiddleware());

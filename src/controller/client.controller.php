@@ -32,6 +32,52 @@ class ClientsController
     }
 
     /**
+     * Get authenticated client profile (minimal set for client UI)
+     */
+    public function getClientProfileData(int $clientId): array
+    {
+        if (!$clientId) {
+            return [
+                'status' => 'error',
+                'code' => 400,
+                'message' => 'Invalid client ID'
+            ];
+        }
+
+        $client = $this->clientModel->getClientById($clientId);
+        if (!$client) {
+            return [
+                'status' => 'error',
+                'code' => 404,
+                'message' => 'Client not found'
+            ];
+        }
+
+        $first = $client['firstName'] ?? '';
+        $last = $client['lastName'] ?? '';
+        $name = trim($first . ' ' . $last);
+        $id = (int) ($client['client_id'] ?? 0);
+        $customerId = 'CUST-' . str_pad((string) $id, 6, '0', STR_PAD_LEFT);
+
+        return [
+            'status' => 'success',
+            'code' => 200,
+            'client' => [
+                'client_id' => $id,
+                'firstName' => $first,
+                'lastName' => $last,
+                'name' => $name ?: ($client['email'] ?? 'Client'),
+                'email' => $client['email'] ?? null,
+                'phone' => $client['phone'] ?? null,
+                'address' => $client['address'] ?? null,
+                'company' => $client['company'] ?? null,
+                'customerId' => $customerId,
+            ],
+            'message' => null,
+        ];
+    }
+
+    /**
      * Get all clients
      */
     public function getAllClients(): string
@@ -502,5 +548,245 @@ class ClientsController
         ];
 
         return $statusColors[$status] ?? 'gray';
+    }
+
+    /**
+     * Get client payments data (invoices and payment history)
+     */
+    public function getClientPaymentsData(int $clientId): array
+    {
+        if (!$clientId) {
+            return [
+                'status' => 'error',
+                'code' => 400,
+                'message' => 'Invalid client ID'
+            ];
+        }
+
+        // Get all invoices for the client
+        $invoices = $this->invoiceModel->getInvoicesByClientId($clientId);
+        
+        // Get all payments for the client
+        $payments = $this->paymentModel->getPaymentsByClientId($clientId);
+
+        // Calculate summary statistics based on actual successful payments
+        $totalPaid = 0.0;
+        $pendingPayment = 0.0;
+        $overdue = 0.0; // No due date logic, keep at 0
+
+        // Build map of successful payments per invoice
+        $successfulStatuses = ['completed', 'paid', 'success', 'successful'];
+        $paidPerInvoice = [];
+        foreach ($payments as $p) {
+            $status = strtolower((string)($p['status'] ?? ''));
+            if (in_array($status, $successfulStatuses, true)) {
+                $invId = (int) $p['invoice_id'];
+                if (!isset($paidPerInvoice[$invId])) {
+                    $paidPerInvoice[$invId] = 0.0;
+                }
+                $paidPerInvoice[$invId] += (float) $p['amount'];
+                $totalPaid += (float) $p['amount'];
+            }
+        }
+
+        // Pending payment is sum of outstanding balances across invoices
+        foreach ($invoices as $invoice) {
+            $invId = (int) $invoice['invoice_id'];
+            $paidForThis = (float) ($paidPerInvoice[$invId] ?? 0.0);
+            $balanceForThis = max(0.0, (float) $invoice['amount'] - $paidForThis);
+            $pendingPayment += $balanceForThis;
+        }
+
+        // Format invoices for frontend, override status to PAID when balance is zero
+        $formattedInvoices = [];
+        foreach ($invoices as $invoice) {
+            $formatted = $this->formatInvoiceForClient($invoice);
+            $invId = (int) $invoice['invoice_id'];
+            $paidForThis = (float) ($paidPerInvoice[$invId] ?? 0.0);
+            $balanceForThis = max(0.0, (float) $invoice['amount'] - $paidForThis);
+            // Attach computed balance for UI convenience
+            $formatted['balance'] = $balanceForThis;
+            // Ensure status reflects payment reality
+            if ($balanceForThis <= 0.00001) {
+                $formatted['status'] = 'PAID';
+            }
+            $formattedInvoices[] = $formatted;
+        }
+
+        // Format payments for frontend
+        $formattedPayments = [];
+        foreach ($payments as $payment) {
+            $formattedPayments[] = $this->formatPaymentForClient($payment);
+        }
+
+        return [
+            'status' => 'success',
+            'code' => 200,
+            'data' => [
+                'summary' => [
+                    'totalPaid' => $totalPaid,
+                    'pendingPayment' => $pendingPayment,
+                    'overdue' => $overdue
+                ],
+                'invoices' => $formattedInvoices,
+                'payments' => $formattedPayments
+            ],
+            'message' => null
+        ];
+    }
+
+    /**
+     * Get single invoice details for client
+     */
+    public function getClientInvoiceById(int $clientId, int $invoiceId): array
+    {
+        if (!$clientId || !$invoiceId) {
+            return [
+                'status' => 'error',
+                'code' => 400,
+                'message' => 'Invalid client ID or invoice ID'
+            ];
+        }
+
+        $invoice = $this->invoiceModel->getInvoiceById($invoiceId);
+        
+        // Verify invoice belongs to client
+        if (!$invoice || $invoice['client_id'] != $clientId) {
+            return [
+                'status' => 'error',
+                'code' => 404,
+                'message' => 'Invoice not found'
+            ];
+        }
+
+        // Get associated payments
+        $payments = $this->paymentModel->getPaymentsByInvoiceId($invoiceId);
+
+        $formattedInvoice = $this->formatInvoiceDetailsForClient($invoice, $payments);
+
+        return [
+            'status' => 'success',
+            'code' => 200,
+            'invoice' => $formattedInvoice,
+            'message' => null
+        ];
+    }
+
+    /**
+     * Format invoice for client invoices list
+     */
+    private function formatInvoiceForClient(array $invoice): array
+    {
+        // Get parcel/shipment reference
+        $shipmentRef = 'N/A';
+        if ($invoice['parcel_id']) {
+            $parcel = $this->parcelModel->getParcelById($invoice['parcel_id']);
+            if ($parcel && $parcel['shipment_id']) {
+                $shipment = $this->shipmentModel->getShipmentById($parcel['shipment_id']);
+                $shipmentRef = $shipment['waybill_number'] ?? $parcel['tracking_number'];
+            } else if ($parcel) {
+                $shipmentRef = $parcel['tracking_number'];
+            }
+        }
+
+        // Determine status - since there's no due_date, just map the existing status
+        $status = strtoupper($invoice['status']);
+        if ($status === 'UNPAID') {
+            $status = 'PENDING';
+        } else if ($status === 'PAID') {
+            $status = 'PAID';
+        }
+
+        return [
+            'invoiceId' => 'INV-' . str_pad((string)$invoice['invoice_id'], 6, '0', STR_PAD_LEFT),
+            'id' => $invoice['invoice_id'],
+            'shipmentRef' => $shipmentRef,
+            'amount' => (float) $invoice['amount'],
+            'status' => $status,
+            'issueDate' => $invoice['created_at'],
+            'dueDate' => null, // No due_date field in schema
+            'description' => $invoice['description'] ?? 'Shipping charges',
+            'serviceCount' => 1, // Can be expanded to count line items if we add invoice_items table
+            'tags' => []
+        ];
+    }
+
+    /**
+     * Format invoice details for client
+     */
+    private function formatInvoiceDetailsForClient(array $invoice, array $payments): array
+    {
+        $basic = $this->formatInvoiceForClient($invoice);
+        
+        // Add more detailed information
+        $parcelDetails = null;
+        if ($invoice['parcel_id']) {
+            $parcel = $this->parcelModel->getParcelById($invoice['parcel_id']);
+            if ($parcel) {
+                $parcelDetails = [
+                    'trackingNumber' => $parcel['tracking_number'],
+                    'description' => $parcel['description'],
+                    'weight' => (float) $parcel['weight'],
+                    'declaredValue' => (float) $parcel['declared_value']
+                ];
+            }
+        }
+
+        // Format payment history and compute totals based on successful payments only
+        $paymentHistory = [];
+        $successfulStatuses = ['completed', 'paid', 'success', 'successful'];
+        $totalPaid = 0.0;
+        foreach ($payments as $payment) {
+            $statusUpper = strtoupper((string)($payment['status'] ?? ''));
+            $statusLower = strtolower((string)($payment['status'] ?? ''));
+            if (in_array($statusLower, $successfulStatuses, true)) {
+                $totalPaid += (float) $payment['amount'];
+            }
+            $paymentHistory[] = [
+                'paymentId' => $payment['payment_id'],
+                'amount' => (float) $payment['amount'],
+                'method' => $payment['payment_method'] ?? 'N/A',
+                // payment_date isn't in schema; use created_at as the visible date
+                'date' => $payment['payment_date'] ?? $payment['created_at'] ?? null,
+                'status' => $statusUpper,
+                'reference' => $payment['transaction_id'] ?? ('PAY-' . str_pad((string)$payment['payment_id'], 6, '0', STR_PAD_LEFT))
+            ];
+        }
+
+        $amount = (float) $invoice['amount'];
+        $balance = max(0.0, $amount - $totalPaid);
+        $derivedStatus = $balance <= 0.00001 ? 'PAID' : $basic['status'];
+
+        return array_merge($basic, [
+            'parcel' => $parcelDetails,
+            'paymentHistory' => $paymentHistory,
+            'totalPaid' => round($totalPaid, 2),
+            'balance' => round($balance, 2),
+            // Ensure status in details reflects computed balance
+            'status' => $derivedStatus,
+        ]);
+    }
+
+    /**
+     * Format payment for client payment history
+     */
+    private function formatPaymentForClient(array $payment): array
+    {
+        // Get invoice reference
+        $invoiceRef = 'N/A';
+        if ($payment['invoice_id']) {
+            $invoiceRef = 'INV-' . str_pad((string)$payment['invoice_id'], 6, '0', STR_PAD_LEFT);
+        }
+
+        return [
+            'paymentId' => $payment['payment_id'],
+            'invoiceId' => $invoiceRef,
+            'amount' => (float) $payment['amount'],
+            'method' => $payment['payment_method'] ?? 'Credit Card',
+            // payment_date isn't in schema; use created_at for display
+            'date' => $payment['payment_date'] ?? $payment['created_at'] ?? null,
+            'status' => strtoupper($payment['status']),
+            'reference' => $payment['transaction_id'] ?? ('PAY-' . str_pad((string)$payment['payment_id'], 6, '0', STR_PAD_LEFT))
+        ];
     }
 }
