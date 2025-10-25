@@ -8,6 +8,8 @@ require_once MODEL . 'parcel.model.php';
 require_once MODEL . 'invoice.model.php';
 require_once MODEL . 'payment.model.php';
 require_once MODEL . 'client-notification.model.php';
+require_once MODEL . 'client_settings.model.php';
+require_once MODEL . 'client_login_activity.model.php';
 
 /**
  * ClientsController
@@ -23,6 +25,8 @@ class ClientsController
     protected InvoiceModel $invoiceModel;
     protected PaymentModel $paymentModel;
     protected ClientNotificationModel $notificationModel;
+    protected ClientSettingsModel $settingsModel;
+    protected ClientLoginActivityModel $activityModel;
 
     public function __construct()
     {
@@ -32,6 +36,8 @@ class ClientsController
         $this->invoiceModel = new InvoiceModel();
         $this->paymentModel = new PaymentModel();
         $this->notificationModel = new ClientNotificationModel();
+        $this->settingsModel = new ClientSettingsModel();
+        $this->activityModel = new ClientLoginActivityModel();
     }
 
     /**
@@ -905,5 +911,169 @@ class ClientsController
             'status' => strtoupper($payment['status']),
             'reference' => $payment['transaction_id'] ?? ('PAY-' . str_pad((string)$payment['payment_id'], 6, '0', STR_PAD_LEFT))
         ];
+    }
+
+    /**
+     * Get client settings
+     */
+    public function getClientSettings(int $clientId): array
+    {
+        try {
+            $settings = $this->settingsModel->getClientSettings($clientId);
+
+            if (empty($settings)) {
+                // Return default settings
+                return [
+                    'status' => 'success',
+                    'code' => 200,
+                    'data' => [
+                        'timezone' => 'UTC',
+                        'language' => 'en',
+                        'currency' => 'USD'
+                    ]
+                ];
+            }
+
+            return [
+                'status' => 'success',
+                'code' => 200,
+                'data' => [
+                    'timezone' => $settings['timezone'] ?? 'UTC',
+                    'language' => $settings['language'] ?? 'en',
+                    'currency' => $settings['currency'] ?? 'USD'
+                ]
+            ];
+        } catch (Exception $e) {
+            error_log("Error getting client settings: " . $e->getMessage());
+            return [
+                'status' => 'error',
+                'code' => 500,
+                'message' => 'Failed to retrieve settings'
+            ];
+        }
+    }
+
+    /**
+     * Update client settings
+     */
+    public function updateClientSettings(int $clientId, array $settings): array
+    {
+        try {
+            if (!$this->settingsModel->updateClientSettings($clientId, $settings)) {
+                return [
+                    'status' => 'error',
+                    'code' => 500,
+                    'message' => 'Failed to update settings'
+                ];
+            }
+
+            return [
+                'status' => 'success',
+                'code' => 200,
+                'message' => 'Settings updated successfully'
+            ];
+        } catch (Exception $e) {
+            error_log("Error updating client settings: " . $e->getMessage());
+            return [
+                'status' => 'error',
+                'code' => 500,
+                'message' => 'Failed to update settings'
+            ];
+        }
+    }
+
+    /**
+     * Get client login activity history
+     */
+    public function getClientLoginHistory(int $clientId, int $limit = 10): array
+    {
+        try {
+            $activities = $this->activityModel->getClientLoginHistory($clientId, $limit);
+
+            // Format activities for frontend
+            $formattedActivities = array_map(function($activity) {
+                return [
+                    'date' => date('Y-m-d', strtotime($activity['login_time'])),
+                    'time' => date('H:i', strtotime($activity['login_time'])),
+                    'device' => $activity['device_info'] ?? 'Unknown Device',
+                    'location' => $activity['location'] ?? 'Unknown Location',
+                    'status' => $activity['status']
+                ];
+            }, $activities);
+
+            return [
+                'status' => 'success',
+                'code' => 200,
+                'data' => $formattedActivities
+            ];
+        } catch (Exception $e) {
+            error_log("Error getting client login history: " . $e->getMessage());
+            return [
+                'status' => 'error',
+                'code' => 500,
+                'message' => 'Failed to retrieve login history'
+            ];
+        }
+    }
+
+    /**
+     * Update client profile information
+     */
+    public function updateClientProfile(int $clientId, array $profileData): array
+    {
+        try {
+            // Validate required fields
+            $requiredFields = ['firstName', 'lastName', 'email'];
+            foreach ($requiredFields as $field) {
+                if (empty($profileData[$field])) {
+                    return [
+                        'status' => 'error',
+                        'code' => 400,
+                        'message' => ucfirst($field) . ' is required'
+                    ];
+                }
+            }
+
+            // Check if email is already taken by another client
+            $existingClient = $this->clientModel->getClientByEmail($profileData['email']);
+            if ($existingClient && $existingClient['client_id'] != $clientId) {
+                return [
+                    'status' => 'error',
+                    'code' => 400,
+                    'message' => 'Email address is already in use'
+                ];
+            }
+
+            // Update client profile
+            $updateData = [
+                'firstName' => $profileData['firstName'],
+                'lastName' => $profileData['lastName'],
+                'email' => $profileData['email'],
+                'phone' => $profileData['phoneNumber'] ?? null,
+                'company' => $profileData['company'] ?? null,
+                'address' => $profileData['address'] ?? null
+            ];
+
+            if (!$this->clientModel->updateClient($clientId, $updateData)) {
+                return [
+                    'status' => 'error',
+                    'code' => 500,
+                    'message' => 'Failed to update profile'
+                ];
+            }
+
+            return [
+                'status' => 'success',
+                'code' => 200,
+                'message' => 'Profile updated successfully'
+            ];
+        } catch (Exception $e) {
+            error_log("Error updating client profile: " . $e->getMessage());
+            return [
+                'status' => 'error',
+                'code' => 500,
+                'message' => 'Failed to update profile'
+            ];
+        }
     }
 }

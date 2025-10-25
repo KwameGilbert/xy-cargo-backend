@@ -241,3 +241,30 @@ CREATE TABLE IF NOT EXISTS rate_management (
     INDEX idx_destination (destination_country_id, destination_city_id),
     INDEX idx_weight_range (min_weight, max_weight)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- CLIENT SETTINGS
+CREATE TABLE IF NOT EXISTS client_settings (
+    client_id INT PRIMARY KEY,
+    timezone VARCHAR(50) DEFAULT 'UTC',
+    language VARCHAR(10) DEFAULT 'en',
+    currency VARCHAR(3) DEFAULT 'USD',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (client_id) REFERENCES clients(client_id) ON DELETE CASCADE,
+    INDEX idx_client_id (client_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- CLIENT LOGIN ACTIVITY
+CREATE TABLE IF NOT EXISTS client_login_activity (
+    activity_id INT AUTO_INCREMENT PRIMARY KEY,
+    client_id INT NOT NULL,
+    login_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    ip_address VARCHAR(45),
+    user_agent TEXT,
+    device_info VARCHAR(255),
+    location VARCHAR(255),
+    status ENUM('success', 'failed') DEFAULT 'success',
+    FOREIGN KEY (client_id) REFERENCES clients(client_id) ON DELETE CASCADE,
+    INDEX idx_client_id (client_id),
+    INDEX idx_login_time (login_time)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

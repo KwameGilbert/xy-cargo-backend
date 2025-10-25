@@ -289,5 +289,61 @@ return function ($app): void {
         $response->getBody()->write(json_encode($result));
         return $response->withHeader('Content-Type', 'application/json')->withStatus($result['code']);
     })->add(new AuthMiddleware());
-    
+
+    // Get client settings (protected)
+    $app->get('/v1/clients/settings/data', function ($request, $response) use ($clientController) {
+        $user = $request->getAttribute('user');
+        if (!$user) {
+            $response->getBody()->write(json_encode([
+                'status' => 'error',
+                'code' => 401,
+                'message' => 'Unauthorized access'
+            ]));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(401);
+        }
+
+        $clientId = (int) $user['data']->client_id;
+        $result = $clientController->getClientSettings($clientId);
+        $response->getBody()->write(json_encode($result));
+        return $response->withHeader('Content-Type', 'application/json')->withStatus($result['code']);
+    })->add(new AuthMiddleware());
+
+    // Update client settings (protected)
+    $app->patch('/v1/clients/settings/data', function ($request, $response) use ($clientController) {
+        $user = $request->getAttribute('user');
+        if (!$user) {
+            $response->getBody()->write(json_encode([
+                'status' => 'error',
+                'code' => 401,
+                'message' => 'Unauthorized access'
+            ]));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(401);
+        }
+
+        $clientId = (int) $user['data']->client_id;
+        $data = json_decode((string) $request->getBody(), true) ?? [];
+        $result = $clientController->updateClientSettings($clientId, $data);
+        $response->getBody()->write(json_encode($result));
+        return $response->withHeader('Content-Type', 'application/json')->withStatus($result['code']);
+    })->add(new AuthMiddleware());
+
+    // Update client profile (protected)
+    $app->patch('/v1/clients/profile/data', function ($request, $response) use ($clientController) {
+        $user = $request->getAttribute('user');
+        if (!$user) {
+            $response->getBody()->write(json_encode([
+                'status' => 'error',
+                'code' => 401,
+                'message' => 'Unauthorized access'
+            ]));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(401);
+        }
+
+        $clientId = (int) $user['data']->client_id;
+        $data = json_decode((string) $request->getBody(), true) ?? [];
+        $result = $clientController->updateClientProfile($clientId, $data);
+        $response->getBody()->write(json_encode($result));
+        return $response->withHeader('Content-Type', 'application/json')->withStatus($result['code']);
+    })->add(new AuthMiddleware());
+ 
 };

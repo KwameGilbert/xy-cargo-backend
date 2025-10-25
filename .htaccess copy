@@ -1,0 +1,11 @@
+RewriteEngine On
+RewriteBase /
+
+# Redirect domain/api... to domain/api/public/... (temporary redirect)
+RewriteCond %{REQUEST_URI} ^/api(/.*)?$
+RewriteCond %{REQUEST_URI} !^/api/public/
+RewriteRule ^api(?:/(.*))?$ /api/public/$1 [R=302,L]
+
+# Existing rule: internally rewrite everything to public/ unless already there
+RewriteCond %{REQUEST_URI} !^/public/
+RewriteRule ^(.*)$ public/$1 [L]
