@@ -406,8 +406,8 @@ class ClientsController
             // Get metrics
             $metrics = $this->getDashboardMetrics($clientId);
 
-            // Get recent shipments
-            $recentShipments = $this->getRecentShipments($clientId);
+            // Get recent parcels
+            $recentParcels = $this->getRecentParcels($clientId);
 
             // Get notifications
             $notifications = $this->getClientNotifications($clientId);
@@ -417,7 +417,7 @@ class ClientsController
 
             $dashboardData = [
                 'metrics' => $metrics,
-                'recentShipments' => $recentShipments,
+                'recentParcels' => $recentParcels,
                 'notifications' => $notifications,
                 'welcomeMessage' => $welcomeMessage
             ];
@@ -482,32 +482,47 @@ class ClientsController
     }
 
     /**
-     * Get recent shipments for client
+     * Get recent parcels for client
      * @param int $clientId
      * @return array
      */
-    private function getRecentShipments(int $clientId): array
+    private function getRecentParcels(int $clientId): array
     {
-        $shipments = $this->shipmentModel->getRecentShipmentsByClient($clientId, 5);
+        $parcels = $this->parcelModel->getParcelsByClientId($clientId);
+
+        // Limit to 5 most recent parcels
+        $recentParcels = array_slice($parcels, 0, 5);
 
         $result = [];
-        foreach ($shipments as $shipment) {
-            // Get destination city name if available
-            $destination = $shipment['destination_country'];
-            if (!empty($shipment['destination_city_id'])) {
-                // This would need to be implemented in the model to join with cities table
-                $cityName = $this->getCityName($shipment['destination_city_id']);
-                if ($cityName) {
-                    $destination = $cityName . ', ' . $shipment['destination_country'];
+        foreach ($recentParcels as $parcel) {
+            // Get shipment details for destination and estimated delivery
+            $shipment = null;
+            if (!empty($parcel['shipment_id'])) {
+                $shipment = $this->shipmentModel->getShipmentById($parcel['shipment_id']);
+            }
+
+            // Determine destination
+            $destination = 'Unknown';
+            $estimatedArrival = null;
+            if ($shipment) {
+                $destination = $shipment['destination_country'];
+                if (!empty($shipment['destination_city_id'])) {
+                    $cityName = $this->getCityName($shipment['destination_city_id']);
+                    if ($cityName) {
+                        $destination = $cityName . ', ' . $shipment['destination_country'];
+                    }
                 }
+                $estimatedArrival = $shipment['expected_delivery'] ? date('Y-m-d', strtotime($shipment['expected_delivery'])) : null;
             }
 
             $result[] = [
-                'id' => $shipment['tracking_number'],
-                'status' => $shipment['status'],
+                'id' => $parcel['parcel_id'],
+                'trackingId' => $parcel['tracking_number'],
+                'status' => $parcel['status'],
                 'destination' => $destination,
-                'date' => date('Y-m-d', strtotime($shipment['created_at'])),
-                'statusColor' => $this->getStatusColor($shipment['status'])
+                'estimatedArrival' => $estimatedArrival,
+                'date' => date('Y-m-d', strtotime($parcel['created_at'])),
+                'statusColor' => $this->getStatusColor($parcel['status'])
             ];
         }
 
