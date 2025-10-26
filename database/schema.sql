@@ -268,3 +268,51 @@ CREATE TABLE IF NOT EXISTS client_login_activity (
     INDEX idx_client_id (client_id),
     INDEX idx_login_time (login_time)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- PENDING
+
+-- WAREHOUSE NOTIFICATIONS
+CREATE TABLE IF NOT EXISTS warehouse_notifications (
+    notification_id INT AUTO_INCREMENT PRIMARY KEY,
+    warehouse_id INT NOT NULL,
+    staff_id INT, -- Optional: specific staff member, NULL for all staff in warehouse
+    type VARCHAR(50) NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    message TEXT NOT NULL,
+    reference_id INT, -- Can reference shipment_id, parcel_id, invoice_id, etc.
+    reference_type VARCHAR(50), -- 'shipment', 'parcel', 'invoice', 'payment', etc.
+    is_read BOOLEAN DEFAULT FALSE,
+    priority VARCHAR(20) DEFAULT 'normal', -- 'low', 'normal', 'high', 'urgent'
+    icon VARCHAR(50) DEFAULT 'bell',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (warehouse_id) REFERENCES warehouses(warehouse_id) ON DELETE CASCADE,
+    FOREIGN KEY (staff_id) REFERENCES warehouse_staff(staff_id) ON DELETE CASCADE,
+    INDEX idx_warehouse_id (warehouse_id),
+    INDEX idx_staff_id (staff_id),
+    INDEX idx_type (type),
+    INDEX idx_priority (priority),
+    INDEX idx_is_read (is_read),
+    INDEX idx_created_at (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- WAREHOUSE ACTIVITY LOG
+CREATE TABLE IF NOT EXISTS warehouse_activity_log (
+    activity_id INT AUTO_INCREMENT PRIMARY KEY,
+    warehouse_id INT NOT NULL,
+    staff_id INT NOT NULL,
+    action VARCHAR(100) NOT NULL, -- 'parcel_logged', 'payment_received', 'shipment_created', etc.
+    description TEXT NOT NULL,
+    reference_id INT, -- Can reference parcel_id, shipment_id, invoice_id, etc.
+    reference_type VARCHAR(50), -- 'parcel', 'shipment', 'invoice', 'payment', etc.
+    metadata JSON, -- Additional data like amounts, weights, etc.
+    ip_address VARCHAR(45),
+    user_agent TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (warehouse_id) REFERENCES warehouses(warehouse_id) ON DELETE CASCADE,
+    FOREIGN KEY (staff_id) REFERENCES warehouse_staff(staff_id) ON DELETE CASCADE,
+    INDEX idx_warehouse_id (warehouse_id),
+    INDEX idx_staff_id (staff_id),
+    INDEX idx_action (action),
+    INDEX idx_created_at (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
