@@ -194,7 +194,7 @@ class ParcelsController
         // Get shipment tracking updates
         $trackingHistory = [];
         if ($parcel['shipment_id']) {
-            require_once MODEL . 'shipment_tracking_update.model.php';
+            require_once MODEL . 'shipment-tracking-update.model.php';
             $trackingModel = new ShipmentTrackingUpdateModel();
             $updates = $trackingModel->getTrackingUpdatesByShipmentId($parcel['shipment_id']);
             
