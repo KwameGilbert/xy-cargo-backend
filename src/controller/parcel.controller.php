@@ -191,13 +191,82 @@ class ParcelsController
             ];
         }
 
+        // Get comprehensive parcel details with items
+        $parcelDetails = $this->parcelModel->getParcelWithDetails($parcel['parcel_id']);
+        if (!$parcelDetails) {
+            $parcelDetails = $parcel; // fallback to basic parcel data
+        }
+
+        // Get shipment information if parcel is assigned to a shipment
+        $shipmentInfo = null;
+        if ($parcel['shipment_id']) {
+            $shipment = $this->shipmentModel->getShipmentById($parcel['shipment_id']);
+            if ($shipment) {
+                // Get warehouse information
+                $originWarehouse = null;
+                $destinationWarehouse = null;
+
+                if ($shipment['origin_warehouse_id']) {
+                    require_once MODEL . 'warehouse.model.php';
+                    $warehouseModel = new WarehouseModel();
+                    $originWarehouse = $warehouseModel->getWarehouseById($shipment['origin_warehouse_id']);
+                }
+
+                if ($shipment['destination_warehouse_id']) {
+                    require_once MODEL . 'warehouse.model.php';
+                    $warehouseModel = new WarehouseModel();
+                    $destinationWarehouse = $warehouseModel->getWarehouseById($shipment['destination_warehouse_id']);
+                }
+
+                $shipmentInfo = [
+                    'shipmentId' => $shipment['shipment_id'],
+                    'waybillNumber' => $shipment['waybill_number'],
+                    'originCountry' => $shipment['origin_country'],
+                    'destinationCountry' => $shipment['destination_country'],
+                    'departureDate' => $shipment['departure_date'],
+                    'arrivalDate' => $shipment['arrival_date'],
+                    'priority' => $shipment['priority'],
+                    'shippedAt' => $shipment['shipped_at'],
+                    'expectedDelivery' => $shipment['expected_delivery'],
+                    'deliveredAt' => $shipment['delivered_at'],
+                    'originWarehouse' => $originWarehouse ? [
+                        'id' => $originWarehouse['warehouse_id'],
+                        'name' => $originWarehouse['name'],
+                        'address' => $originWarehouse['address']
+                    ] : null,
+                    'destinationWarehouse' => $destinationWarehouse ? [
+                        'id' => $destinationWarehouse['warehouse_id'],
+                        'name' => $destinationWarehouse['name'],
+                        'address' => $destinationWarehouse['address']
+                    ] : null,
+                    'notes' => $shipment['notes']
+                ];
+            }
+        }
+
+        // Get client information (basic details only for privacy)
+        $clientInfo = null;
+        if ($parcel['client_id']) {
+            require_once MODEL . 'client.model.php';
+            $clientModel = new ClientsModel();
+            $client = $clientModel->getClientById($parcel['client_id']);
+            if ($client) {
+                $clientInfo = [
+                    'clientId' => $client['client_id'],
+                    'firstName' => $client['firstName'],
+                    'lastName' => $client['lastName'],
+                    'company' => $client['company']
+                ];
+            }
+        }
+
         // Get shipment tracking updates
         $trackingHistory = [];
         if ($parcel['shipment_id']) {
             require_once MODEL . 'shipment-tracking-update.model.php';
             $trackingModel = new ShipmentTrackingUpdateModel();
             $updates = $trackingModel->getTrackingUpdatesByShipmentId($parcel['shipment_id']);
-            
+
             foreach ($updates as $update) {
                 $trackingHistory[] = [
                     'status' => ucfirst($update['status']),
@@ -209,12 +278,42 @@ class ParcelsController
             }
         }
 
+        // Format parcel items
+        $formattedItems = [];
+        if (isset($parcelDetails['items']) && is_array($parcelDetails['items'])) {
+            foreach ($parcelDetails['items'] as $item) {
+                $formattedItems[] = [
+                    'itemId' => $item['item_id'],
+                    'description' => $item['description'],
+                    'quantity' => (int) $item['quantity'],
+                    'weight' => (float) $item['weight'],
+                    'value' => (float) $item['value']
+                ];
+            }
+        }
+
         return [
             'status' => 'success',
             'code' => 200,
             'trackingNumber' => $trackingNumber,
-            'parcelId' => $parcel['parcel_id'],
-            'currentStatus' => strtoupper($parcel['status']),
+            'parcel' => [
+                'parcelId' => $parcel['parcel_id'],
+                'name' => $parcel['name'],
+                'description' => $parcel['description'],
+                'weight' => (float) $parcel['weight'],
+                'dimensions' => $parcel['dimensions'],
+                'status' => strtoupper($parcel['status']),
+                'declaredValue' => (float) $parcel['declared_value'],
+                'shippingCost' => (float) $parcel['shipping_cost'],
+                'paymentStatus' => strtoupper($parcel['payment_status']),
+                'category' => $parcel['category'],
+                'notes' => $parcel['notes'],
+                'createdAt' => $parcel['created_at'],
+                'updatedAt' => $parcel['updated_at'],
+                'items' => $formattedItems
+            ],
+            'shipment' => $shipmentInfo,
+            'client' => $clientInfo,
             'trackingHistory' => $trackingHistory,
             'message' => null
         ];

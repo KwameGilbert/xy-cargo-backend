@@ -62,7 +62,7 @@ class ParcelItemModel
     public function getItemsByParcelId(int $parcelId): array
     {
         try {
-            $sql = "SELECT item_id, parcel_id, name, quantity, value, weight, height, width, length, fragile, special_packaging, created_at, updated_at
+            $sql = "SELECT item_id, parcel_id, name, description, quantity, value, weight, height, width, length, fragile, special_packaging, created_at, updated_at
                     FROM {$this->tableName}
                     WHERE parcel_id = :parcel_id
                     ORDER BY item_id ASC";
