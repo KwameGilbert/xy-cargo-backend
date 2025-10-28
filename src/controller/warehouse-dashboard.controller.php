@@ -36,17 +36,17 @@ class WarehouseDashboardController
     }
 
     /**
-     * Get complete dashboard data for a warehouse
+     * Get complete dashboard data for warehouse
      */
-    public function getDashboardData(int $warehouseId): array
+    public function getDashboardData(): array
     {
         try {
-            $kpiData = $this->getKPIData($warehouseId);
-            $parcelIntakeTrend = $this->getParcelIntakeTrend($warehouseId);
-            $shipmentStatusDistribution = $this->getShipmentStatusDistribution($warehouseId);
-            $paymentsSummary = $this->getPaymentsSummary($warehouseId);
-            $recentActivities = $this->getRecentActivities($warehouseId);
-            $notifications = $this->getNotifications($warehouseId);
+            $kpiData = $this->getKPIData();
+            $parcelIntakeTrend = $this->getParcelIntakeTrend();
+            $shipmentStatusDistribution = $this->getShipmentStatusDistribution();
+            $paymentsSummary = $this->getPaymentsSummary();
+            $recentActivities = $this->getRecentActivities();
+            $notifications = $this->getNotifications();
 
             return [
                 'status' => 'success',
@@ -74,28 +74,24 @@ class WarehouseDashboardController
     /**
      * Get KPI data for warehouse dashboard
      */
-    private function getKPIData(int $warehouseId): array
+    private function getKPIData(): array
     {
         // Parcels received today
-        $parcelsReceivedToday = $this->getParcelsReceivedToday($warehouseId);
+        $parcelsReceivedToday = $this->getParcelsReceivedToday();
 
         // Pending shipments
-        $pendingShipments = $this->getPendingShipments($warehouseId);
+        $pendingShipments = $this->getPendingShipments();
 
         // Unpaid parcels
-        $unpaidParcels = $this->getUnpaidParcels($warehouseId);
-
-        // Claims opened (we'll count parcels with issues or special handling)
-        $claimsOpened = $this->getClaimsOpened($warehouseId);
+        $unpaidParcels = $this->getUnpaidParcels();
 
         // Total weight received today
-        $totalWeightReceivedToday = $this->getTotalWeightReceivedToday($warehouseId);
+        $totalWeightReceivedToday = $this->getTotalWeightReceivedToday();
 
         return [
             'parcelsReceivedToday' => $parcelsReceivedToday,
             'pendingShipments' => $pendingShipments,
             'unpaidParcels' => $unpaidParcels,
-            'claimsOpened' => $claimsOpened,
             'totalWeightReceivedToday' => $totalWeightReceivedToday
         ];
     }
@@ -103,17 +99,15 @@ class WarehouseDashboardController
     /**
      * Get parcels received today
      */
-    private function getParcelsReceivedToday(int $warehouseId): int
+    private function getParcelsReceivedToday(): int
     {
         try {
-            // Count parcels created today for this warehouse
+            // Count parcels created today
             $sql = "SELECT COUNT(*) as count FROM parcels p
-                    INNER JOIN shipments s ON p.shipment_id = s.shipment_id
-                    WHERE s.warehouse_id = :warehouse_id
-                    AND DATE(p.created_at) = CURDATE()";
+                    WHERE DATE(p.created_at) = CURDATE()";
 
             $stmt = $this->db->prepare($sql);
-            $stmt->execute(['warehouse_id' => $warehouseId]);
+            $stmt->execute();
             $result = $stmt->fetch(PDO::FETCH_ASSOC);
 
             return (int) ($result['count'] ?? 0);
@@ -126,15 +120,14 @@ class WarehouseDashboardController
     /**
      * Get pending shipments
      */
-    private function getPendingShipments(int $warehouseId): int
+    private function getPendingShipments(): int
     {
         try {
             $sql = "SELECT COUNT(*) as count FROM shipments
-                    WHERE warehouse_id = :warehouse_id
-                    AND status = 'pending'";
+                    WHERE status = 'pending'";
 
             $stmt = $this->db->prepare($sql);
-            $stmt->execute(['warehouse_id' => $warehouseId]);
+            $stmt->execute();
             $result = $stmt->fetch(PDO::FETCH_ASSOC);
 
             return (int) ($result['count'] ?? 0);
@@ -147,16 +140,14 @@ class WarehouseDashboardController
     /**
      * Get unpaid parcels
      */
-    private function getUnpaidParcels(int $warehouseId): int
+    private function getUnpaidParcels(): int
     {
         try {
             $sql = "SELECT COUNT(*) as count FROM parcels p
-                    INNER JOIN shipments s ON p.shipment_id = s.shipment_id
-                    WHERE s.warehouse_id = :warehouse_id
-                    AND p.payment_status = 'unpaid'";
+                    WHERE p.payment_status = 'unpaid'";
 
             $stmt = $this->db->prepare($sql);
-            $stmt->execute(['warehouse_id' => $warehouseId]);
+            $stmt->execute();
             $result = $stmt->fetch(PDO::FETCH_ASSOC);
 
             return (int) ($result['count'] ?? 0);
@@ -167,42 +158,16 @@ class WarehouseDashboardController
     }
 
     /**
-     * Get claims opened (parcels with special packaging or issues)
-     */
-    private function getClaimsOpened(int $warehouseId): int
-    {
-        try {
-            // Count parcels with special packaging requests or that might indicate claims
-            $sql = "SELECT COUNT(DISTINCT p.parcel_id) as count FROM parcels p
-                    INNER JOIN shipments s ON p.shipment_id = s.shipment_id
-                    INNER JOIN parcel_items pi ON p.parcel_id = pi.parcel_id
-                    WHERE s.warehouse_id = :warehouse_id
-                    AND (pi.special_packaging = TRUE OR p.status = 'damaged' OR p.status = 'lost')";
-
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute(['warehouse_id' => $warehouseId]);
-            $result = $stmt->fetch(PDO::FETCH_ASSOC);
-
-            return (int) ($result['count'] ?? 0);
-        } catch (Exception $e) {
-            error_log('Error getting claims opened: ' . $e->getMessage());
-            return 0;
-        }
-    }
-
-    /**
      * Get total weight received today
      */
-    private function getTotalWeightReceivedToday(int $warehouseId): float
+    private function getTotalWeightReceivedToday(): float
     {
         try {
             $sql = "SELECT COALESCE(SUM(p.weight), 0) as total_weight FROM parcels p
-                    INNER JOIN shipments s ON p.shipment_id = s.shipment_id
-                    WHERE s.warehouse_id = :warehouse_id
-                    AND DATE(p.created_at) = CURDATE()";
+                    WHERE DATE(p.created_at) = CURDATE()";
 
             $stmt = $this->db->prepare($sql);
-            $stmt->execute(['warehouse_id' => $warehouseId]);
+            $stmt->execute();
             $result = $stmt->fetch(PDO::FETCH_ASSOC);
 
             return (float) ($result['total_weight'] ?? 0);
@@ -215,19 +180,17 @@ class WarehouseDashboardController
     /**
      * Get parcel intake trend (last 7 days)
      */
-    private function getParcelIntakeTrend(int $warehouseId): array
+    private function getParcelIntakeTrend(): array
     {
         try {
             $sql = "SELECT DATE(p.created_at) as date, COUNT(*) as count
                     FROM parcels p
-                    INNER JOIN shipments s ON p.shipment_id = s.shipment_id
-                    WHERE s.warehouse_id = :warehouse_id
-                    AND p.created_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+                    WHERE p.created_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
                     GROUP BY DATE(p.created_at)
                     ORDER BY date ASC";
 
             $stmt = $this->db->prepare($sql);
-            $stmt->execute(['warehouse_id' => $warehouseId]);
+            $stmt->execute();
             $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
             // Fill in missing dates with 0 counts
@@ -257,17 +220,16 @@ class WarehouseDashboardController
     /**
      * Get shipment status distribution
      */
-    private function getShipmentStatusDistribution(int $warehouseId): array
+    private function getShipmentStatusDistribution(): array
     {
         try {
             $sql = "SELECT status, COUNT(*) as count
                     FROM shipments
-                    WHERE warehouse_id = :warehouse_id
                     GROUP BY status
                     ORDER BY count DESC";
 
             $stmt = $this->db->prepare($sql);
-            $stmt->execute(['warehouse_id' => $warehouseId]);
+            $stmt->execute();
             $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
             $distribution = [];
@@ -288,7 +250,7 @@ class WarehouseDashboardController
     /**
      * Get payments summary for the last 7 days
      */
-    private function getPaymentsSummary(int $warehouseId): array
+    private function getPaymentsSummary(): array
     {
         try {
             $sql = "SELECT
@@ -298,14 +260,12 @@ class WarehouseDashboardController
                     FROM payments pay
                     INNER JOIN invoices inv ON pay.invoice_id = inv.invoice_id
                     INNER JOIN parcels par ON inv.parcel_id = par.parcel_id
-                    INNER JOIN shipments s ON par.shipment_id = s.shipment_id
-                    WHERE s.warehouse_id = :warehouse_id
-                    AND pay.created_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+                    WHERE pay.created_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
                     GROUP BY DAYOFWEEK(pay.created_at), DAYNAME(pay.created_at)
                     ORDER BY DAYOFWEEK(pay.created_at)";
 
             $stmt = $this->db->prepare($sql);
-            $stmt->execute(['warehouse_id' => $warehouseId]);
+            $stmt->execute();
             $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
             $summary = [];
@@ -339,10 +299,10 @@ class WarehouseDashboardController
     /**
      * Get recent activities from activity log
      */
-    private function getRecentActivities(int $warehouseId): array
+    private function getRecentActivities(): array
     {
         try {
-            $activities = $this->activityLogModel->getRecentActivities($warehouseId, 10);
+            $activities = $this->activityLogModel->getRecentActivities(null, 10);
 
             $formattedActivities = [];
             foreach ($activities as $activity) {
@@ -367,10 +327,10 @@ class WarehouseDashboardController
     /**
      * Get notifications for warehouse
      */
-    private function getNotifications(int $warehouseId): array
+    private function getNotifications(): array
     {
         try {
-            $notifications = $this->notificationModel->getWarehouseNotifications($warehouseId);
+            $notifications = $this->notificationModel->getWarehouseNotifications(null);
 
             $formattedNotifications = [];
             foreach ($notifications as $notification) {

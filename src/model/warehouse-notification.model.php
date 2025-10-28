@@ -54,20 +54,25 @@ class WarehouseNotificationModel
     /**
      * Get all notifications for a warehouse (for all staff or specific staff)
      */
-    public function getWarehouseNotifications(int $warehouseId, ?int $staffId = null): array
+    public function getWarehouseNotifications(?int $warehouseId, ?int $staffId = null): array
     {
         try {
             $sql = "SELECT notification_id, warehouse_id, staff_id, type, title, message, reference_id, reference_type, is_read, priority, icon, created_at, updated_at
-                    FROM {$this->tableName}
-                    WHERE warehouse_id = :warehouse_id";
+                    FROM {$this->tableName}";
 
-            $params = ['warehouse_id' => $warehouseId];
+            $params = [];
+            if ($warehouseId !== null) {
+                $sql .= " WHERE warehouse_id = :warehouse_id";
+                $params['warehouse_id'] = $warehouseId;
+            }
 
             if ($staffId !== null) {
-                $sql .= " AND (staff_id IS NULL OR staff_id = :staff_id)";
+                $sql .= ($warehouseId !== null ? " AND" : " WHERE") . " (staff_id IS NULL OR staff_id = :staff_id)";
                 $params['staff_id'] = $staffId;
-            } else {
+            } elseif ($warehouseId !== null) {
                 $sql .= " AND staff_id IS NULL"; // Only general warehouse notifications
+            } else {
+                $sql .= " WHERE staff_id IS NULL"; // Only general notifications when no warehouse filter
             }
 
             $sql .= " ORDER BY priority DESC, created_at DESC";

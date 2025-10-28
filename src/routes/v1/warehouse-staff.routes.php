@@ -13,6 +13,13 @@ return function ($app): void {
     $warehouseStaffController = new WarehouseStaffController();
     $warehouseDashboardController = new WarehouseDashboardController();
 
+     // Get warehouse dashboard data
+    $app->get('/v1/warehouse-staff/dashboard/data', function ($request, $response) use ($warehouseDashboardController) {
+        $result = $warehouseDashboardController->getDashboardData();
+        $response->getBody()->write(json_encode($result));
+        return $response->withHeader('Content-Type', 'application/json')->withStatus($result['code']);
+    });
+
     // Get all warehouse staff
     $app->get('/v1/warehouse-staff', function ($request, $response) use ($warehouseStaffController) {
         $result = $warehouseStaffController->getAllWarehouseStaff();

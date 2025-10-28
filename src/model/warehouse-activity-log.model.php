@@ -54,23 +54,26 @@ class WarehouseActivityLogModel
     /**
      * Get recent activities for a warehouse
      */
-    public function getRecentActivities(int $warehouseId, int $limit = 20): array
+    public function getRecentActivities(?int $warehouseId, int $limit = 20): array
     {
         try {
             $sql = "SELECT al.activity_id, al.warehouse_id, al.staff_id, al.action, al.description,
                            al.reference_id, al.reference_type, al.metadata, al.created_at,
                            ws.firstName, ws.lastName
                     FROM {$this->tableName} al
-                    LEFT JOIN warehouse_staff ws ON al.staff_id = ws.staff_id
-                    WHERE al.warehouse_id = :warehouse_id
-                    ORDER BY al.created_at DESC
-                    LIMIT :limit";
+                    LEFT JOIN warehouse_staff ws ON al.staff_id = ws.staff_id";
+
+            $params = [];
+            if ($warehouseId !== null) {
+                $sql .= " WHERE al.warehouse_id = :warehouse_id";
+                $params['warehouse_id'] = $warehouseId;
+            }
+
+            $sql .= " ORDER BY al.created_at DESC LIMIT :limit";
+            $params['limit'] = $limit;
 
             $stmt = $this->db->prepare($sql);
-            if (!$this->executeQuery($stmt, [
-                'warehouse_id' => $warehouseId,
-                'limit' => $limit
-            ])) {
+            if (!$this->executeQuery($stmt, $params)) {
                 return [];
             }
 

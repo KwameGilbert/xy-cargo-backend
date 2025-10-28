@@ -7,9 +7,13 @@ declare(strict_types=1);
  */
 
 require_once CONTROLLER . '/warehouse.controller.php';
+require_once CONTROLLER . '/warehouse-dashboard.controller.php';
 
 return function ($app): void {
     $warehouseController = new WarehousesController();
+    $dashboardController = new WarehouseDashboardController();
+    
+   
 
     // Get all warehouses
     $app->get('/v1/warehouses', function ($request, $response) use ($warehouseController) {
@@ -66,4 +70,5 @@ return function ($app): void {
         $response->getBody()->write(json_encode($result));
         return $response->withHeader('Content-Type', 'application/json')->withStatus($data['code']);
     });
+
 };
