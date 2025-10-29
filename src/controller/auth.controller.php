@@ -12,18 +12,15 @@ declare(strict_types=1);
 require_once MODEL . '/client.model.php';
 require_once MODEL . '/warehouse-staff.model.php';
 require_once HELPER . '/JwtHelper.php';
-require_once CONTROLLER . '/client.controller.php';
 
 class AuthController{
     protected ClientsModel $clientModel;
     protected WarehouseStaffModel $warehouseStaffModel;
-    protected ClientsController $clientsController;
 
     public function __construct()
     {
         $this->clientModel = new ClientsModel();
         $this->warehouseStaffModel = new WarehouseStaffModel();
-        $this->clientsController = new ClientsController();
     }
 
     /**
@@ -60,7 +57,7 @@ class AuthController{
 
         require_once HELPER . '/JwtHelper.php';
         // Generate a JWT token for the authenticated client
-        $payload = ['data' => $client];
+        $payload =['data' => $client];
         $token = JwtHelper::generateToken($payload);
         return json_encode([
             'code' => 200,
@@ -119,7 +116,63 @@ class AuthController{
      * Sign Up Client
      */
     public function clientSignUp($data): string {
-        // Delegate to ClientsController::createClient
-        return $this->clientsController->createClient($data);
-    }
+        // Validate required fields
+         $required = ['firstName', 'lastName', 'email', 'password'];
+        $missing = [];
+        foreach ($required as $field) {
+            if (!isset($data[$field]) || $data[$field] === '') {
+                $missing[] = $field;
+            }
+        }
+        if (!empty($missing)) {
+            return json_encode([
+                'status' => 'error',
+                'code' => 400,
+                'client' => null,
+                'message' => 'Missing required fields: ' . implode(', ', $missing),
+            ], JSON_PRETTY_PRINT);
+        }
+
+        if ($client = $this->clientModel->getClientByEmail($data['email'])) {
+            return json_encode([
+                'status' => 'error',
+                'code' => 409,
+                'field' => 'email',
+                'message' => 'Email already in use by another account',
+            ], JSON_PRETTY_PRINT);
+        }
+
+        $violation = $this->checkUniqueConstraints($data, null);
+        if ($violation) {
+            return json_encode([
+                'status' => 'error',
+                'code' => 400,
+                'client' => null,
+                'field' => $violation['field'],
+                'message' => $violation['message'],
+            ], JSON_PRETTY_PRINT);
+        }
+
+        // Hash the password
+        $data['password_hash'] = password_hash($data['password'], PASSWORD_DEFAULT);
+        unset($data['password']);
+
+        $clientId = $this->clientModel->createClient($data);
+        if ($clientId === false) {
+            return json_encode([
+                'status' => 'error',
+                'code' => 500,
+                'client' => null,
+                'message' => 'Failed to create client: ' . $this->clientModel->getLastError(),
+            ], JSON_PRETTY_PRINT);
+        }
+
+        $client = $this->clientModel->getClientById((int) $clientId);
+        return json_encode([
+            'status' => 'success',
+            'code' => 201,
+            'client' => $client,
+            'message' => 'Client created successfully',
+        ], JSON_PRETTY_PRINT);
+        }
 };

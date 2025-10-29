@@ -7,18 +7,9 @@ declare(strict_types=1);
  */
 
 require_once CONTROLLER . '/warehouse-staff.controller.php';
-require_once CONTROLLER . '/warehouse-dashboard.controller.php';
 
 return function ($app): void {
     $warehouseStaffController = new WarehouseStaffController();
-    $warehouseDashboardController = new WarehouseDashboardController();
-
-     // Get warehouse dashboard data
-    $app->get('/v1/warehouse-staff/dashboard/data', function ($request, $response) use ($warehouseDashboardController) {
-        $result = $warehouseDashboardController->getDashboardData();
-        $response->getBody()->write(json_encode($result));
-        return $response->withHeader('Content-Type', 'application/json')->withStatus($result['code']);
-    });
 
     // Get all warehouse staff
     $app->get('/v1/warehouse-staff', function ($request, $response) use ($warehouseStaffController) {
@@ -89,19 +80,6 @@ return function ($app): void {
     $app->delete('/v1/warehouse-staff/{id}', function ($request, $response, $args) use ($warehouseStaffController) {
         $id = isset($args['id']) ? (int) $args['id'] : 0;
         $result = $warehouseStaffController->deleteWarehouseStaff($id);
-        $data = $result;
-        $response->getBody()->write(json_encode($result));
-        return $response->withHeader('Content-Type', 'application/json')->withStatus($data['code']);
-    });
-
-    // Get warehouse dashboard data
-    $app->get('/v1/warehouse-staff/dashboard/data/{warehouseId}', function ($request, $response, $args) use ($warehouseDashboardController) {
-        $warehouseId = isset($args['warehouseId']) ? (int) $args['warehouseId'] : 0;
-        if (!$warehouseId) {
-            $result = ['status' => 'error', 'code' => 400, 'message' => 'Invalid warehouse ID'];
-        } else {
-            $result = $warehouseDashboardController->getDashboardData($warehouseId);
-        }
         $data = $result;
         $response->getBody()->write(json_encode($result));
         return $response->withHeader('Content-Type', 'application/json')->withStatus($data['code']);

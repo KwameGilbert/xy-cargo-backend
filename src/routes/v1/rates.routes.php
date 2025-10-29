@@ -11,7 +11,6 @@ declare(strict_types=1);
 require_once CONTROLLER . '/rates.controller.php';
 
 return function ($app): void {
-    $ratesController = new RatesController();
     // Get all countries for dropdowns
     $app->get('/v1/rates/countries', function ($request, $response, $args) use ($ratesController) {
         $result = $ratesController->getCountries();

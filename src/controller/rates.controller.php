@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-require_once MODEL . 'rates.model.php';
+require_once MODEL . '/rates.model.php';
 
 class RatesController
 {
@@ -127,33 +127,19 @@ class RatesController
                 return [
                     'status' => 'error',
                     'code' => 404,
-                    'message' => 'No rate found for the selected route and cargo type, contact support.'
+                    'message' => 'No rate found for the selected route and cargo type'
                 ];
             }
 
             // Calculate cost based on charging method and input values
             $calculation = $this->calculateCost($rate, $data);
 
-            // Get additional details for the response
-            $originCountry = $this->ratesModel->getCountryById($rate['origin_country_id']);
-            $destinationCountry = $this->ratesModel->getCountryById($rate['destination_country_id']);
-            $shipmentType = $this->ratesModel->getShipmentTypeById($rate['shipment_type_id']);
-            $cargoCategory = $this->ratesModel->getCargoCategoryById($rate['cargo_category_id']);
-
             return [
                 'status' => 'success',
                 'code' => 200,
                 'data' => [
-                    'origin_country' => $originCountry['name'] ?? 'Unknown',
-                    'destination_country' => $destinationCountry['name'] ?? 'Unknown',
-                    'shipment_type' => $shipmentType['name'] ?? 'Unknown',
-                    'cargo_category' => $cargoCategory['name'] ?? 'Unknown',
-                    'estimated_days' => $shipmentType['estimated_days'] ?? 0,
-                    'total_cost' => $calculation['totalCost'],
-                    'currency' => $rate['currency'] ?? 'USD',
-                    'weight' => $data['weight'] ?? null,
-                    'volume' => isset($data['volume']) ? (float)$data['volume'] : null,
-                    'unit' => $cargoCategory['unit'] ?? 'kg'
+                    'rate' => $rate,
+                    'calculation' => $calculation
                 ]
             ];
         } catch (Exception $e) {
@@ -170,16 +156,83 @@ class RatesController
      */
     private function calculateCost(array $rate, array $data): array
     {
-        $baseRate = (float) $rate['base_rate'];
-        $additionalCharges = (float) ($rate['additional_charges'] ?? 0);
-        $totalCost = $baseRate + $additionalCharges;
+        $chargingMethod = $rate['charging_method'];
+        $baseCost = (float) $rate['base_cost'];
+        $totalCost = $baseCost;
 
         $calculation = [
-            'baseRate' => $baseRate,
-            'additionalCharges' => $additionalCharges,
-            'totalCost' => round($totalCost, 2)
+            'chargingMethod' => $chargingMethod,
+            'baseCost' => $baseCost,
+            'additionalCosts' => [],
+            'totalCost' => 0
         ];
 
+        switch ($chargingMethod) {
+            case 'weight':
+                if (isset($data['weight']) && is_numeric($data['weight'])) {
+                    $weight = (float) $data['weight'];
+                    $minWeight = (float) ($rate['min_chargeable_weight'] ?? 0);
+                    $chargeableWeight = max($weight, $minWeight);
+                    $costPerKg = (float) ($rate['cost_per_kg'] ?? 0);
+                    $weightCost = $chargeableWeight * $costPerKg;
+                    
+                    $calculation['additionalCosts'][] = [
+                        'type' => 'weight',
+                        'input' => $weight,
+                        'minChargeable' => $minWeight,
+                        'chargeable' => $chargeableWeight,
+                        'costPerUnit' => $costPerKg,
+                        'cost' => $weightCost
+                    ];
+                    
+                    $totalCost += $weightCost;
+                }
+                break;
+
+            case 'piece':
+                if (isset($data['pieces']) && is_numeric($data['pieces'])) {
+                    $pieces = (int) $data['pieces'];
+                    $minPieces = (int) ($rate['min_chargeable_pieces'] ?? 1);
+                    $chargeablePieces = max($pieces, $minPieces);
+                    $costPerPiece = (float) ($rate['cost_per_piece'] ?? 0);
+                    $piecesCost = $chargeablePieces * $costPerPiece;
+                    
+                    $calculation['additionalCosts'][] = [
+                        'type' => 'pieces',
+                        'input' => $pieces,
+                        'minChargeable' => $minPieces,
+                        'chargeable' => $chargeablePieces,
+                        'costPerUnit' => $costPerPiece,
+                        'cost' => $piecesCost
+                    ];
+                    
+                    $totalCost += $piecesCost;
+                }
+                break;
+
+            case 'size':
+                if (isset($data['cbm']) && is_numeric($data['cbm'])) {
+                    $cbm = (float) $data['cbm'];
+                    $minSize = (float) ($rate['min_chargeable_size'] ?? 0);
+                    $chargeableSize = max($cbm, $minSize);
+                    $costPerCbm = (float) ($rate['cost_per_cbm'] ?? 0);
+                    $sizeCost = $chargeableSize * $costPerCbm;
+                    
+                    $calculation['additionalCosts'][] = [
+                        'type' => 'cbm',
+                        'input' => $cbm,
+                        'minChargeable' => $minSize,
+                        'chargeable' => $chargeableSize,
+                        'costPerUnit' => $costPerCbm,
+                        'cost' => $sizeCost
+                    ];
+                    
+                    $totalCost += $sizeCost;
+                }
+                break;
+        }
+
+        $calculation['totalCost'] = round($totalCost, 2);
         return $calculation;
     }
 }

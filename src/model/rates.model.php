@@ -47,7 +47,7 @@ class RatesModel
             return false;
         }
     }
-
+    
     /**
      * Get all countries
      */
@@ -73,7 +73,7 @@ class RatesModel
      */
     public function getAllShipmentTypes(): array
     {
-        $stmt = $this->db->prepare("SELECT type_id, name, description, estimated_days FROM shipment_types ORDER BY name");
+        $stmt = $this->db->prepare("SELECT type_id, name, description FROM shipment_types ORDER BY name");
         $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
@@ -83,11 +83,7 @@ class RatesModel
      */
     public function getAllCargoCategories(): array
     {
-        $stmt = $this->db->prepare("
-            SELECT cc.category_id, cc.name, cc.description, cc.base_rate, cc.unit, cc.min_quantity, cc.shipment_type_id
-            FROM cargo_categories cc
-            ORDER BY cc.name
-        ");
+        $stmt = $this->db->prepare("SELECT category_id, name, description FROM cargo_categories ORDER BY name");
         $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
@@ -112,32 +108,25 @@ class RatesModel
     }
 
     /**
-     * Get country by ID
+     * Get all active rates (for admin purposes)
      */
-    public function getCountryById(int $countryId): ?array
+    public function getAllRates(): array
     {
-        $stmt = $this->db->prepare("SELECT country_id, name, code FROM countries WHERE country_id = ?");
-        $stmt->execute([$countryId]);
-        return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
-    }
-
-    /**
-     * Get shipment type by ID
-     */
-    public function getShipmentTypeById(int $typeId): ?array
-    {
-        $stmt = $this->db->prepare("SELECT type_id, name, description, estimated_days FROM shipment_types WHERE type_id = ?");
-        $stmt->execute([$typeId]);
-        return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
-    }
-
-    /**
-     * Get cargo category by ID
-     */
-    public function getCargoCategoryById(int $categoryId): ?array
-    {
-        $stmt = $this->db->prepare("SELECT category_id, name, description, base_rate, unit, min_quantity FROM cargo_categories WHERE category_id = ?");
-        $stmt->execute([$categoryId]);
-        return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+        $stmt = $this->db->prepare("
+            SELECT r.*, 
+                   st.name as shipment_type_name,
+                   cc.name as cargo_category_name,
+                   oc.name as origin_country_name,
+                   dc.name as destination_country_name
+            FROM rates r
+            LEFT JOIN shipment_types st ON r.shipment_type_id = st.type_id
+            LEFT JOIN cargo_categories cc ON r.cargo_category_id = cc.category_id
+            LEFT JOIN countries oc ON r.origin_country_id = oc.country_id
+            LEFT JOIN countries dc ON r.destination_country_id = dc.country_id
+            WHERE r.status = 'active'
+            ORDER BY r.created_at DESC
+        ");
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 }
