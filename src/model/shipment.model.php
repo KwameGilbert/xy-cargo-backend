@@ -101,7 +101,7 @@ class ShipmentModel
     public function getShipmentById(int $shipmentId): ?array
     {
         try {
-            $sql = "SELECT shipment_id, tracking_number, origin_country, destination_country, departure_date, arrival_date, status, priority, warehouse_id, shipped_at, expected_delivery, delivered_at, notes, created_at, updated_at
+            $sql = "SELECT *
                     FROM {$this->tableName}
                     WHERE shipment_id = :shipment_id";
             $stmt = $this->db->prepare($sql);
