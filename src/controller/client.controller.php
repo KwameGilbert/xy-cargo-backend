@@ -3,6 +3,13 @@
 declare(strict_types=1);
 
 require_once MODEL . 'client.model.php';
+require_once MODEL . 'shipment.model.php';
+require_once MODEL . 'parcel.model.php';
+require_once MODEL . 'invoice.model.php';
+require_once MODEL . 'payment.model.php';
+require_once MODEL . 'client-notification.model.php';
+require_once MODEL . 'client_settings.model.php';
+require_once MODEL . 'client_login_activity.model.php';
 
 /**
  * ClientsController
@@ -13,10 +20,70 @@ require_once MODEL . 'client.model.php';
 class ClientsController
 {
     protected ClientsModel $clientModel;
+    protected ShipmentModel $shipmentModel;
+    protected ParcelModel $parcelModel;
+    protected InvoiceModel $invoiceModel;
+    protected PaymentModel $paymentModel;
+    protected ClientNotificationModel $notificationModel;
+    protected ClientSettingsModel $settingsModel;
+    protected ClientLoginActivityModel $activityModel;
 
     public function __construct()
     {
         $this->clientModel = new ClientsModel();
+        $this->shipmentModel = new ShipmentModel();
+        $this->parcelModel = new ParcelModel();
+        $this->invoiceModel = new InvoiceModel();
+        $this->paymentModel = new PaymentModel();
+        $this->notificationModel = new ClientNotificationModel();
+        $this->settingsModel = new ClientSettingsModel();
+        $this->activityModel = new ClientLoginActivityModel();
+    }
+
+    /**
+     * Get authenticated client profile (minimal set for client UI)
+     */
+    public function getClientProfileData(int $clientId): array
+    {
+        if (!$clientId) {
+            return [
+                'status' => 'error',
+                'code' => 400,
+                'message' => 'Invalid client ID'
+            ];
+        }
+
+        $client = $this->clientModel->getClientById($clientId);
+        if (!$client) {
+            return [
+                'status' => 'error',
+                'code' => 404,
+                'message' => 'Client not found'
+            ];
+        }
+
+        $first = $client['firstName'] ?? '';
+        $last = $client['lastName'] ?? '';
+        $name = trim($first . ' ' . $last);
+        $id = (int) ($client['client_id'] ?? 0);
+        $customerId = 'CUST-' . str_pad((string) $id, 6, '0', STR_PAD_LEFT);
+
+        return [
+            'status' => 'success',
+            'code' => 200,
+            'client' => [
+                'client_id' => $id,
+                'firstName' => $first,
+                'lastName' => $last,
+                'name' => $name ?: ($client['email'] ?? 'Client'),
+                'email' => $client['email'] ?? null,
+                'phone' => $client['phone'] ?? null,
+                'address' => $client['address'] ?? null,
+                'company' => $client['company'] ?? null,
+                'customerId' => $customerId,
+            ],
+            'message' => null,
+        ];
     }
 
     /**
@@ -326,5 +393,702 @@ class ClientsController
         }
 
         return null;
+    }
+
+    /**
+     * Get client dashboard data
+     * @param int $clientId
+     * @return string
+     */
+    public function getClientDashboard(int $clientId): string
+    {
+        try {
+            // Get metrics
+            $metrics = $this->getDashboardMetrics($clientId);
+
+            // Get recent parcels
+            $recentParcels = $this->getRecentParcels($clientId);
+
+            // Get notifications
+            $notifications = $this->getClientNotifications($clientId);
+
+            // Welcome message
+            $welcomeMessage = "Welcome back! Here's an overview of your shipments and account.";
+
+            $dashboardData = [
+                'metrics' => $metrics,
+                'recentParcels' => $recentParcels,
+                'notifications' => $notifications,
+                'welcomeMessage' => $welcomeMessage
+            ];
+
+            return json_encode([
+                'status' => 'success',
+                'code' => 200,
+                'data' => $dashboardData
+            ], JSON_PRETTY_PRINT);
+
+        } catch (Exception $e) {
+            return json_encode([
+                'status' => 'error',
+                'code' => 500,
+                'message' => 'Failed to load dashboard data: ' . $e->getMessage()
+            ], JSON_PRETTY_PRINT);
+        }
+    }
+
+    /**
+     * Get dashboard metrics for client
+     * @param int $clientId
+     * @return array
+     */
+    private function getDashboardMetrics(int $clientId): array
+    {
+        // Active shipments (not delivered)
+        $activeShipments = $this->shipmentModel->getActiveShipmentsCount($clientId);
+
+        // Pending payments (sum of unpaid invoice amounts)
+        $pendingPayments = $this->invoiceModel->getTotalUnpaidAmount($clientId);
+
+        // Delivered this month
+        $deliveredThisMonth = $this->shipmentModel->getDeliveredThisMonthCount($clientId);
+
+        // In warehouse items (parcels with status 'in_warehouse')
+        $inWarehouseItems = $this->parcelModel->getInWarehouseCount($clientId);
+
+        return [
+            'activeShipments' => [
+                'count' => (int) $activeShipments,
+                'icon' => 'package',
+                'label' => 'Active Shipments'
+            ],
+            'pendingPayments' => [
+                'count' => (float) $pendingPayments,
+                'currency' => '$',
+                'icon' => 'dollar',
+                'label' => 'Pending Payments'
+            ],
+            'deliveredThisMonth' => [
+                'count' => (int) $deliveredThisMonth,
+                'icon' => 'check',
+                'label' => 'Delivered This Month'
+            ],
+            'inWarehouse' => [
+                'count' => (int) $inWarehouseItems,
+                'icon' => 'box',
+                'label' => 'In Warehouse'
+            ]
+        ];
+    }
+
+    /**
+     * Get recent parcels for client
+     * @param int $clientId
+     * @return array
+     */
+    private function getRecentParcels(int $clientId): array
+    {
+        $parcels = $this->parcelModel->getParcelsByClientId($clientId);
+
+        // Limit to 5 most recent parcels
+        $recentParcels = array_slice($parcels, 0, 5);
+
+        $result = [];
+        foreach ($recentParcels as $parcel) {
+            // Get shipment details for destination and estimated delivery
+            $shipment = null;
+            if (!empty($parcel['shipment_id'])) {
+                $shipment = $this->shipmentModel->getShipmentById($parcel['shipment_id']);
+            }
+
+            // Determine destination
+            $destination = 'Unknown';
+            $estimatedArrival = null;
+            if ($shipment) {
+                $destination = $shipment['destination_country'];
+                if (!empty($shipment['destination_city_id'])) {
+                    $cityName = $this->getCityName($shipment['destination_city_id']);
+                    if ($cityName) {
+                        $destination = $cityName . ', ' . $shipment['destination_country'];
+                    }
+                }
+                $estimatedArrival = $shipment['expected_delivery'] ? date('Y-m-d', strtotime($shipment['expected_delivery'])) : null;
+            }
+
+            $result[] = [
+                'id' => $parcel['parcel_id'],
+                'trackingId' => $parcel['tracking_number'],
+                'status' => $parcel['status'],
+                'destination' => $destination,
+                'estimatedArrival' => $estimatedArrival,
+                'date' => date('Y-m-d', strtotime($parcel['created_at'])),
+                'statusColor' => $this->getStatusColor($parcel['status'])
+            ];
+        }
+
+        return $result;
+    }
+
+    /**
+     * Get client notifications
+     * @param int $clientId
+     * @return array
+     */
+    private function getClientNotifications(int $clientId): array
+    {
+        return $this->notificationModel->getClientNotifications($clientId);
+    }
+
+    /**
+     * Get client notifications (public method for API)
+     */
+    public function getNotifications(int $clientId): array
+    {
+        if (!$clientId) {
+            return [
+                'status' => 'error',
+                'code' => 400,
+                'message' => 'Invalid client ID'
+            ];
+        }
+
+        $notifications = $this->notificationModel->getClientNotifications($clientId);
+        $unreadCount = $this->notificationModel->getUnreadCount($clientId);
+
+        return [
+            'status' => 'success',
+            'code' => 200,
+            'data' => [
+                'notifications' => $notifications,
+                'unread_count' => $unreadCount
+            ]
+        ];
+    }
+
+    /**
+     * Mark notification as read
+     */
+    public function markNotificationAsRead(int $clientId, int $notificationId): array
+    {
+        if (!$clientId || !$notificationId) {
+            return [
+                'status' => 'error',
+                'code' => 400,
+                'message' => 'Invalid client ID or notification ID'
+            ];
+        }
+
+        $success = $this->notificationModel->markAsRead($notificationId, $clientId);
+
+        if ($success) {
+            return [
+                'status' => 'success',
+                'code' => 200,
+                'message' => 'Notification marked as read'
+            ];
+        } else {
+            return [
+                'status' => 'error',
+                'code' => 500,
+                'message' => 'Failed to mark notification as read'
+            ];
+        }
+    }
+
+    /**
+     * Mark all notifications as read
+     */
+    public function markAllNotificationsAsRead(int $clientId): array
+    {
+        if (!$clientId) {
+            return [
+                'status' => 'error',
+                'code' => 400,
+                'message' => 'Invalid client ID'
+            ];
+        }
+
+        $success = $this->notificationModel->markAllAsRead($clientId);
+
+        if ($success) {
+            return [
+                'status' => 'success',
+                'code' => 200,
+                'message' => 'All notifications marked as read'
+            ];
+        } else {
+            return [
+                'status' => 'error',
+                'code' => 500,
+                'message' => 'Failed to mark all notifications as read'
+            ];
+        }
+    }
+
+    /**
+     * Delete notification
+     */
+    public function deleteNotification(int $clientId, int $notificationId): array
+    {
+        if (!$clientId || !$notificationId) {
+            return [
+                'status' => 'error',
+                'code' => 400,
+                'message' => 'Invalid client ID or notification ID'
+            ];
+        }
+
+        $success = $this->notificationModel->deleteNotification($notificationId, $clientId);
+
+        if ($success) {
+            return [
+                'status' => 'success',
+                'code' => 200,
+                'message' => 'Notification deleted'
+            ];
+        } else {
+            return [
+                'status' => 'error',
+                'code' => 500,
+                'message' => 'Failed to delete notification'
+            ];
+        }
+    }
+
+    /**
+     * Get city name by ID
+     * @param int $cityId
+     * @return string|null
+     */
+    private function getCityName(int $cityId): ?string
+    {
+        // This would need to be implemented - for now return null
+        // We'll need to create a CityModel or add this to an existing model
+        return null;
+    }
+
+    /**
+     * Get status color mapping
+     * @param string $status
+     * @return string
+     */
+    private function getStatusColor(string $status): string
+    {
+        $statusColors = [
+            'pending' => 'gray',
+            'processing' => 'yellow',
+            'in_transit' => 'blue',
+            'customs' => 'orange',
+            'out_for_delivery' => 'purple',
+            'delivered' => 'green',
+            'cancelled' => 'red',
+            'returned' => 'red'
+        ];
+
+        return $statusColors[$status] ?? 'gray';
+    }
+
+    /**
+     * Get client payments data (invoices and payment history)
+     */
+    public function getClientPaymentsData(int $clientId): array
+    {
+        if (!$clientId) {
+            return [
+                'status' => 'error',
+                'code' => 400,
+                'message' => 'Invalid client ID'
+            ];
+        }
+
+        // Get all invoices for the client
+        $invoices = $this->invoiceModel->getInvoicesByClientId($clientId);
+        
+        // Get all payments for the client
+        $payments = $this->paymentModel->getPaymentsByClientId($clientId);
+
+        // Calculate summary statistics based on actual successful payments
+        $totalPaid = 0.0;
+        $pendingPayment = 0.0;
+        $overdue = 0.0; // No due date logic, keep at 0
+
+        // Build map of successful payments per invoice
+        $successfulStatuses = ['completed', 'paid', 'success', 'successful'];
+        $paidPerInvoice = [];
+        foreach ($payments as $p) {
+            $status = strtolower((string)($p['status'] ?? ''));
+            if (in_array($status, $successfulStatuses, true)) {
+                $invId = (int) $p['invoice_id'];
+                if (!isset($paidPerInvoice[$invId])) {
+                    $paidPerInvoice[$invId] = 0.0;
+                }
+                $paidPerInvoice[$invId] += (float) $p['amount'];
+                $totalPaid += (float) $p['amount'];
+            }
+        }
+
+        // Pending payment is sum of outstanding balances across invoices
+        foreach ($invoices as $invoice) {
+            $invId = (int) $invoice['invoice_id'];
+            $paidForThis = (float) ($paidPerInvoice[$invId] ?? 0.0);
+            $balanceForThis = max(0.0, (float) $invoice['amount'] - $paidForThis);
+            $pendingPayment += $balanceForThis;
+        }
+
+        // Format invoices for frontend, override status to PAID when balance is zero
+        $formattedInvoices = [];
+        foreach ($invoices as $invoice) {
+            $formatted = $this->formatInvoiceForClient($invoice);
+            $invId = (int) $invoice['invoice_id'];
+            $paidForThis = (float) ($paidPerInvoice[$invId] ?? 0.0);
+            $balanceForThis = max(0.0, (float) $invoice['amount'] - $paidForThis);
+            // Attach computed balance for UI convenience
+            $formatted['balance'] = $balanceForThis;
+            // Ensure status reflects payment reality
+            if ($balanceForThis <= 0.00001) {
+                $formatted['status'] = 'PAID';
+            }
+            $formattedInvoices[] = $formatted;
+        }
+
+        // Format payments for frontend
+        $formattedPayments = [];
+        foreach ($payments as $payment) {
+            $formattedPayments[] = $this->formatPaymentForClient($payment);
+        }
+
+        return [
+            'status' => 'success',
+            'code' => 200,
+            'data' => [
+                'summary' => [
+                    'totalPaid' => $totalPaid,
+                    'pendingPayment' => $pendingPayment,
+                    'overdue' => $overdue
+                ],
+                'invoices' => $formattedInvoices,
+                'payments' => $formattedPayments
+            ],
+            'message' => null
+        ];
+    }
+
+    /**
+     * Get single invoice details for client
+     */
+    public function getClientInvoiceById(int $clientId, int $invoiceId): array
+    {
+        if (!$clientId || !$invoiceId) {
+            return [
+                'status' => 'error',
+                'code' => 400,
+                'message' => 'Invalid client ID or invoice ID'
+            ];
+        }
+
+        $invoice = $this->invoiceModel->getInvoiceById($invoiceId);
+        
+        // Verify invoice belongs to client
+        if (!$invoice || $invoice['client_id'] != $clientId) {
+            return [
+                'status' => 'error',
+                'code' => 404,
+                'message' => 'Invoice not found'
+            ];
+        }
+
+        // Get associated payments
+        $payments = $this->paymentModel->getPaymentsByInvoiceId($invoiceId);
+
+        $formattedInvoice = $this->formatInvoiceDetailsForClient($invoice, $payments);
+
+        return [
+            'status' => 'success',
+            'code' => 200,
+            'invoice' => $formattedInvoice,
+            'message' => null
+        ];
+    }
+
+    /**
+     * Format invoice for client invoices list
+     */
+    private function formatInvoiceForClient(array $invoice): array
+    {
+        // Get parcel/shipment reference
+        $shipmentRef = 'N/A';
+        if ($invoice['parcel_id']) {
+            $parcel = $this->parcelModel->getParcelById($invoice['parcel_id']);
+            if ($parcel && $parcel['shipment_id']) {
+                $shipment = $this->shipmentModel->getShipmentById($parcel['shipment_id']);
+                $shipmentRef = $shipment['waybill_number'] ?? $parcel['tracking_number'];
+            } else if ($parcel) {
+                $shipmentRef = $parcel['tracking_number'];
+            }
+        }
+
+        // Determine status - since there's no due_date, just map the existing status
+        $status = strtoupper($invoice['status']);
+        if ($status === 'UNPAID') {
+            $status = 'PENDING';
+        } else if ($status === 'PAID') {
+            $status = 'PAID';
+        }
+
+        return [
+            'invoiceId' => 'INV-' . str_pad((string)$invoice['invoice_id'], 6, '0', STR_PAD_LEFT),
+            'id' => $invoice['invoice_id'],
+            'shipmentRef' => $shipmentRef,
+            'amount' => (float) $invoice['amount'],
+            'status' => $status,
+            'issueDate' => $invoice['created_at'],
+            'dueDate' => null, // No due_date field in schema
+            'description' => $invoice['description'] ?? 'Shipping charges',
+            'serviceCount' => 1, // Can be expanded to count line items if we add invoice_items table
+            'tags' => []
+        ];
+    }
+
+    /**
+     * Format invoice details for client
+     */
+    private function formatInvoiceDetailsForClient(array $invoice, array $payments): array
+    {
+        $basic = $this->formatInvoiceForClient($invoice);
+        
+        // Add more detailed information
+        $parcelDetails = null;
+        if ($invoice['parcel_id']) {
+            $parcel = $this->parcelModel->getParcelById($invoice['parcel_id']);
+            if ($parcel) {
+                $parcelDetails = [
+                    'trackingNumber' => $parcel['tracking_number'],
+                    'description' => $parcel['description'],
+                    'weight' => (float) $parcel['weight'],
+                    'declaredValue' => (float) $parcel['declared_value']
+                ];
+            }
+        }
+
+        // Format payment history and compute totals based on successful payments only
+        $paymentHistory = [];
+        $successfulStatuses = ['completed', 'paid', 'success', 'successful'];
+        $totalPaid = 0.0;
+        foreach ($payments as $payment) {
+            $statusUpper = strtoupper((string)($payment['status'] ?? ''));
+            $statusLower = strtolower((string)($payment['status'] ?? ''));
+            if (in_array($statusLower, $successfulStatuses, true)) {
+                $totalPaid += (float) $payment['amount'];
+            }
+            $paymentHistory[] = [
+                'paymentId' => $payment['payment_id'],
+                'amount' => (float) $payment['amount'],
+                'method' => $payment['payment_method'] ?? 'N/A',
+                // payment_date isn't in schema; use created_at as the visible date
+                'date' => $payment['payment_date'] ?? $payment['created_at'] ?? null,
+                'status' => $statusUpper,
+                'reference' => $payment['transaction_id'] ?? ('PAY-' . str_pad((string)$payment['payment_id'], 6, '0', STR_PAD_LEFT))
+            ];
+        }
+
+        $amount = (float) $invoice['amount'];
+        $balance = max(0.0, $amount - $totalPaid);
+        $derivedStatus = $balance <= 0.00001 ? 'PAID' : $basic['status'];
+
+        return array_merge($basic, [
+            'parcel' => $parcelDetails,
+            'paymentHistory' => $paymentHistory,
+            'totalPaid' => round($totalPaid, 2),
+            'balance' => round($balance, 2),
+            // Ensure status in details reflects computed balance
+            'status' => $derivedStatus,
+        ]);
+    }
+
+    /**
+     * Format payment for client payment history
+     */
+    private function formatPaymentForClient(array $payment): array
+    {
+        // Get invoice reference
+        $invoiceRef = 'N/A';
+        if ($payment['invoice_id']) {
+            $invoiceRef = 'INV-' . str_pad((string)$payment['invoice_id'], 6, '0', STR_PAD_LEFT);
+        }
+
+        return [
+            'paymentId' => $payment['payment_id'],
+            'invoiceId' => $invoiceRef,
+            'amount' => (float) $payment['amount'],
+            'method' => $payment['payment_method'] ?? 'Credit Card',
+            // payment_date isn't in schema; use created_at for display
+            'date' => $payment['payment_date'] ?? $payment['created_at'] ?? null,
+            'status' => strtoupper($payment['status']),
+            'reference' => $payment['transaction_id'] ?? ('PAY-' . str_pad((string)$payment['payment_id'], 6, '0', STR_PAD_LEFT))
+        ];
+    }
+
+    /**
+     * Get client settings
+     */
+    public function getClientSettings(int $clientId): array
+    {
+        try {
+            $settings = $this->settingsModel->getClientSettings($clientId);
+
+            if (empty($settings)) {
+                // Return default settings
+                return [
+                    'status' => 'success',
+                    'code' => 200,
+                    'data' => [
+                        'timezone' => 'UTC',
+                        'language' => 'en',
+                        'currency' => 'USD'
+                    ]
+                ];
+            }
+
+            return [
+                'status' => 'success',
+                'code' => 200,
+                'data' => [
+                    'timezone' => $settings['timezone'] ?? 'UTC',
+                    'language' => $settings['language'] ?? 'en',
+                    'currency' => $settings['currency'] ?? 'USD'
+                ]
+            ];
+        } catch (Exception $e) {
+            error_log("Error getting client settings: " . $e->getMessage());
+            return [
+                'status' => 'error',
+                'code' => 500,
+                'message' => 'Failed to retrieve settings'
+            ];
+        }
+    }
+
+    /**
+     * Update client settings
+     */
+    public function updateClientSettings(int $clientId, array $settings): array
+    {
+        try {
+            if (!$this->settingsModel->updateClientSettings($clientId, $settings)) {
+                return [
+                    'status' => 'error',
+                    'code' => 500,
+                    'message' => 'Failed to update settings'
+                ];
+            }
+
+            return [
+                'status' => 'success',
+                'code' => 200,
+                'message' => 'Settings updated successfully'
+            ];
+        } catch (Exception $e) {
+            error_log("Error updating client settings: " . $e->getMessage());
+            return [
+                'status' => 'error',
+                'code' => 500,
+                'message' => 'Failed to update settings'
+            ];
+        }
+    }
+
+    /**
+     * Get client login activity history
+     */
+    public function getClientLoginHistory(int $clientId, int $limit = 10): array
+    {
+        try {
+            $activities = $this->activityModel->getClientLoginHistory($clientId, $limit);
+
+            // Format activities for frontend
+            $formattedActivities = array_map(function($activity) {
+                return [
+                    'date' => date('Y-m-d', strtotime($activity['login_time'])),
+                    'time' => date('H:i', strtotime($activity['login_time'])),
+                    'device' => $activity['device_info'] ?? 'Unknown Device',
+                    'location' => $activity['location'] ?? 'Unknown Location',
+                    'status' => $activity['status']
+                ];
+            }, $activities);
+
+            return [
+                'status' => 'success',
+                'code' => 200,
+                'data' => $formattedActivities
+            ];
+        } catch (Exception $e) {
+            error_log("Error getting client login history: " . $e->getMessage());
+            return [
+                'status' => 'error',
+                'code' => 500,
+                'message' => 'Failed to retrieve login history'
+            ];
+        }
+    }
+
+    /**
+     * Update client profile information
+     */
+    public function updateClientProfile(int $clientId, array $profileData): array
+    {
+        try {
+            // Validate required fields
+            $requiredFields = ['firstName', 'lastName', 'email'];
+            foreach ($requiredFields as $field) {
+                if (empty($profileData[$field])) {
+                    return [
+                        'status' => 'error',
+                        'code' => 400,
+                        'message' => ucfirst($field) . ' is required'
+                    ];
+                }
+            }
+
+            // Check if email is already taken by another client
+            $existingClient = $this->clientModel->getClientByEmail($profileData['email']);
+            if ($existingClient && $existingClient['client_id'] != $clientId) {
+                return [
+                    'status' => 'error',
+                    'code' => 400,
+                    'message' => 'Email address is already in use'
+                ];
+            }
+
+            // Update client profile
+            $updateData = [
+                'firstName' => $profileData['firstName'],
+                'lastName' => $profileData['lastName'],
+                'email' => $profileData['email'],
+                'phone' => $profileData['phoneNumber'] ?? null,
+                'company' => $profileData['company'] ?? null,
+                'address' => $profileData['address'] ?? null
+            ];
+
+            if (!$this->clientModel->updateClient($clientId, $updateData)) {
+                return [
+                    'status' => 'error',
+                    'code' => 500,
+                    'message' => 'Failed to update profile'
+                ];
+            }
+
+            return [
+                'status' => 'success',
+                'code' => 200,
+                'message' => 'Profile updated successfully'
+            ];
+        } catch (Exception $e) {
+            error_log("Error updating client profile: " . $e->getMessage());
+            return [
+                'status' => 'error',
+                'code' => 500,
+                'message' => 'Failed to update profile'
+            ];
+        }
     }
 }

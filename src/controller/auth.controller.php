@@ -142,16 +142,16 @@ class AuthController{
             ], JSON_PRETTY_PRINT);
         }
 
-        $violation = $this->checkUniqueConstraints($data, null);
-        if ($violation) {
-            return json_encode([
-                'status' => 'error',
-                'code' => 400,
-                'client' => null,
-                'field' => $violation['field'],
-                'message' => $violation['message'],
-            ], JSON_PRETTY_PRINT);
-        }
+        // $violation = $this->checkUniqueConstraints($data, null);
+        // if ($violation) {
+        //     return json_encode([
+        //         'status' => 'error',
+        //         'code' => 400,
+        //         'client' => null,
+        //         'field' => $violation['field'],
+        //         'message' => $violation['message'],
+        //     ], JSON_PRETTY_PRINT);
+        // }
 
         // Hash the password
         $data['password_hash'] = password_hash($data['password'], PASSWORD_DEFAULT);

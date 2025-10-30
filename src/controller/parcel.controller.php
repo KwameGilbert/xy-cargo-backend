@@ -138,7 +138,7 @@ class ParcelsController
             'description' => $parcel['description'],
             'weight' => $parcel['weight'],
             'dimensions' => $parcel['dimensions'],
-            'status' => $parcel['status'],
+            'status' => $shipmentInfo['status'],
             'declared_value' => $parcel['declared_value'],
             'shipping_cost' => $parcel['shipping_cost'],
             'payment_status' => $parcel['payment_status'],
@@ -817,6 +817,11 @@ class ParcelsController
             }
         }
 
+        // Get parcel items
+        if($parcel['parcel_id']){
+           $parcelItems = $this->itemModel->getItemsByParcelId($parcel['parcel_id']);
+        }
+
         return [
             'id' => $parcel['parcel_id'],
             'waybillNumber' => $waybillNumber,
@@ -825,6 +830,7 @@ class ParcelsController
             'weight' => (float) ($parcel['weight'] ?? 0),
             'dimensions' => $parcel['dimensions'] ?? 'N/A',
             'status' => strtoupper($parcel['status']),
+            'items' => $parcelItems,
             'currentLocation' => $currentLocation,
             'declaredValue' => (float) ($parcel['declared_value'] ?? 0),
             'shippingCost' => (float) ($parcel['shipping_cost'] ?? 0),
@@ -834,6 +840,7 @@ class ParcelsController
             'originWarehouse' => $originWarehouse,
             'destinationWarehouse' => $destinationWarehouse,
             'estimatedDelivery' => $estimatedDelivery,
+
             'created_at' => $parcel['created_at'],
             'updated_at' => $parcel['updated_at']
         ];

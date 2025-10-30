@@ -105,7 +105,17 @@ class PaymentModel
     public function getPaymentsByInvoiceId(int $invoiceId): array
     {
         try {
-            $sql = "SELECT payment_id, invoice_id, amount, payment_method, status, created_at, updated_at
+            // payment_date and transaction_id are not in schema; alias created_at and a synthetic reference
+            $sql = "SELECT 
+                        payment_id, 
+                        invoice_id, 
+                        amount, 
+                        payment_method, 
+                        status, 
+                        created_at AS payment_date, 
+                        NULL AS transaction_id, 
+                        created_at, 
+                        updated_at
                     FROM {$this->tableName}
                     WHERE invoice_id = :invoice_id
                     ORDER BY payment_id DESC";
@@ -116,6 +126,39 @@ class PaymentModel
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
         } catch (PDOException $e) {
             $this->lastError = 'Failed to get payments by invoice ID: ' . $e->getMessage();
+            error_log($this->lastError);
+            return [];
+        }
+    }
+
+    /**
+     * Get payments by client ID (through invoices)
+     */
+    public function getPaymentsByClientId(int $clientId): array
+    {
+        try {
+            // payment_date and transaction_id are not in schema; alias accordingly
+            $sql = "SELECT 
+                        p.payment_id, 
+                        p.invoice_id, 
+                        p.amount, 
+                        p.payment_method, 
+                        p.status, 
+                        p.created_at AS payment_date, 
+                        NULL AS transaction_id, 
+                        p.created_at, 
+                        p.updated_at
+                    FROM {$this->tableName} p
+                    INNER JOIN invoices i ON p.invoice_id = i.invoice_id
+                    WHERE i.client_id = :client_id
+                    ORDER BY p.payment_id DESC";
+            $stmt = $this->db->prepare($sql);
+            if (!$this->executeQuery($stmt, ['client_id' => $clientId])) {
+                return [];
+            }
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            $this->lastError = 'Failed to get payments by client ID: ' . $e->getMessage();
             error_log($this->lastError);
             return [];
         }

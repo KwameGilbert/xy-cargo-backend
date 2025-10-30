@@ -80,7 +80,7 @@ class ShipmentModel
     public function getAllShipments(): array
     {
         try {
-            $sql = "SELECT shipment_id, tracking_number, origin_country, destination_country, departure_date, arrival_date, status, priority, warehouse_id, shipped_at, expected_delivery, delivered_at, notes, created_at, updated_at
+            $sql = "SELECT shipment_id, tracking_number, waybill_number, origin_country, destination_country, departure_date, arrival_date, status, priority, origin_warehouse_id, destination_warehouse_id, warehouse_id, shipped_at, expected_delivery, delivered_at, notes, created_at, updated_at
                     FROM {$this->tableName}
                     ORDER BY shipment_id DESC";
             $stmt = $this->db->prepare($sql);
@@ -101,7 +101,7 @@ class ShipmentModel
     public function getShipmentById(int $shipmentId): ?array
     {
         try {
-            $sql = "SELECT *
+            $sql = "SELECT shipment_id, tracking_number, waybill_number, origin_country, destination_country, departure_date, arrival_date, status, priority, origin_warehouse_id, destination_warehouse_id, warehouse_id, shipped_at, expected_delivery, delivered_at, notes, created_at, updated_at
                     FROM {$this->tableName}
                     WHERE shipment_id = :shipment_id";
             $stmt = $this->db->prepare($sql);
@@ -330,6 +330,86 @@ class ShipmentModel
             $this->lastError = 'Failed to delete shipment: ' . $e->getMessage();
             error_log($this->lastError);
             return false;
+        }
+    }
+
+    /**
+     * Get count of active shipments for a client (not delivered)
+     * @param int $clientId
+     * @return int
+     */
+    public function getActiveShipmentsCount(int $clientId): int
+    {
+        try {
+            $stmt = $this->db->prepare("
+                SELECT COUNT(DISTINCT s.shipment_id) as count
+                FROM shipments s
+                INNER JOIN parcels p ON s.shipment_id = p.shipment_id
+                WHERE p.client_id = :client_id
+                AND s.status != 'delivered'
+            ");
+            $stmt->execute(['client_id' => $clientId]);
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            return (int) ($result['count'] ?? 0);
+        } catch (PDOException $e) {
+            $this->lastError = 'Failed to get active shipments count: ' . $e->getMessage();
+            error_log($this->lastError);
+            return 0;
+        }
+    }
+
+    /**
+     * Get count of shipments delivered this month for a client
+     * @param int $clientId
+     * @return int
+     */
+    public function getDeliveredThisMonthCount(int $clientId): int
+    {
+        try {
+            $stmt = $this->db->prepare("
+                SELECT COUNT(DISTINCT s.shipment_id) as count
+                FROM shipments s
+                INNER JOIN parcels p ON s.shipment_id = p.shipment_id
+                WHERE p.client_id = :client_id
+                AND s.status = 'delivered'
+                AND MONTH(s.delivered_at) = MONTH(CURRENT_DATE())
+                AND YEAR(s.delivered_at) = YEAR(CURRENT_DATE())
+            ");
+            $stmt->execute(['client_id' => $clientId]);
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            return (int) ($result['count'] ?? 0);
+        } catch (PDOException $e) {
+            $this->lastError = 'Failed to get delivered this month count: ' . $e->getMessage();
+            error_log($this->lastError);
+            return 0;
+        }
+    }
+
+    /**
+     * Get recent shipments for a client
+     * @param int $clientId
+     * @param int $limit
+     * @return array
+     */
+    public function getRecentShipmentsByClient(int $clientId, int $limit = 5): array
+    {
+        try {
+            $stmt = $this->db->prepare("
+                SELECT DISTINCT s.*
+                FROM shipments s
+                INNER JOIN parcels p ON s.shipment_id = p.shipment_id
+                WHERE p.client_id = :client_id
+                ORDER BY s.created_at DESC
+                LIMIT :limit
+            ");
+            $stmt->bindParam(':client_id', $clientId, PDO::PARAM_INT);
+            $stmt->bindParam(':limit', $limit, PDO::PARAM_INT);
+            $stmt->execute();
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            $this->lastError = 'Failed to get recent shipments: ' . $e->getMessage();
+            error_log($this->lastError);
+            return [];
         }
     }
 }

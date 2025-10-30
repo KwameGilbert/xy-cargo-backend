@@ -58,6 +58,15 @@ return function ($app): void {
         return $response->withHeader('Content-Type', 'application/json')->withStatus($data['code']);
     });
 
+    // Get parcel tracking by tracking number
+    $app->get('/v1/parcels/track/{trackingNumber}', function ($request, $response, $args) use ($parcelController) {
+        $trackingNumber = $args['trackingNumber'] ?? '';
+        $result = $parcelController->getParcelTracking($trackingNumber);
+        $data = $result;
+        $response->getBody()->write(json_encode($result));
+        return $response->withHeader('Content-Type', 'application/json')->withStatus($data['code']);
+    });
+
     // Create a new parcel
     // Expects: {"client_id": int, "description"?: string, "weight"?: float, "dimensions"?: string, "declared_value"?: float, "shipping_cost"?: float, "payment_status"?: string, "tags"?: array, "items"?: array}
     $app->post('/v1/parcels', function ($request, $response) use ($parcelController) {

@@ -80,7 +80,7 @@ class ClientsModel
     public function getClientById(int $clientId): ?array
     {
         try {
-            $sql = "SELECT client_id, firstName, lastName, email, phone, address, created_at, updated_at
+            $sql = "SELECT client_id, firstName, lastName, email,company, phone, address, created_at, updated_at
                     FROM {$this->tableName}
                     WHERE client_id = :client_id";
             $stmt = $this->db->prepare($sql);
