@@ -57,21 +57,109 @@ class PaymentModel
     }
 
     /**
-     * List all payments
+     * Get payments with optional date filtering and invoice details
+     * @param string|null $startDate Optional start date for filtering (Y-m-d format)
+     * @param string|null $endDate Optional end date for filtering (Y-m-d format)
+     * @param string|null $period Optional predefined period (today, week, month, year)
+     * @return array List of payments with invoice details
      */
-    public function getAllPayments(): array
+    public function getPayments(?string $startDate = null, ?string $endDate = null, ?string $period = null): array
     {
         try {
-            $sql = "SELECT payment_id, invoice_id, amount, payment_method, status, created_at, updated_at
-                    FROM {$this->tableName}
-                    ORDER BY payment_id DESC";
+            $sql = "SELECT 
+                    p.payment_id, p.invoice_id, p.amount, p.payment_method, p.status, 
+                    p.created_at, p.updated_at,
+                    i.invoice_number, i.description as invoice_description, i.due_date,
+                    i.amount as invoice_amount,
+                    c.name as customer_name
+                FROM {$this->tableName} p
+                LEFT JOIN invoices i ON p.invoice_id = i.invoice_id
+                LEFT JOIN clients c ON i.client_id = c.client_id
+                WHERE 1=1";
+            $params = [];
+
+            // Handle period-based filtering
+            if ($period) {
+                switch($period) {
+                    case 'today':
+                        $sql .= " AND DATE(p.created_at) = CURDATE()";
+                        break;
+                    case 'week':
+                        $sql .= " AND p.created_at >= DATE_SUB(CURDATE(), INTERVAL 1 WEEK)";
+                        break;
+                    case 'month':
+                        $sql .= " AND p.created_at >= DATE_SUB(CURDATE(), INTERVAL 1 MONTH)";
+                        break;
+                    case 'year':
+                        $sql .= " AND p.created_at >= DATE_SUB(CURDATE(), INTERVAL 1 YEAR)";
+                        break;
+                }
+            } elseif ($startDate && $endDate) {
+                $sql .= " AND DATE(p.created_at) BETWEEN :start_date AND :end_date";
+                $params['start_date'] = $startDate;
+                $params['end_date'] = $endDate;
+            }
+
+            $sql .= " ORDER BY p.payment_id DESC";
+            
             $stmt = $this->db->prepare($sql);
-            if (!$this->executeQuery($stmt)) {
+            if (!$this->executeQuery($stmt, $params)) {
                 return [];
             }
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
         } catch (PDOException $e) {
             $this->lastError = 'Failed to get payments: ' . $e->getMessage();
+            error_log($this->lastError);
+            return [];
+        }
+    }
+
+    /**
+     * Get payment summary statistics
+     * @param string|null $startDate Optional start date for filtering (Y-m-d format)
+     * @param string|null $endDate Optional end date for filtering (Y-m-d format)
+     * @param string|null $period Optional predefined period (today, week, month, year)
+     * @return array Summary statistics
+     */
+    public function getPaymentSummary(?string $startDate = null, ?string $endDate = null, ?string $period = null): array
+    {
+        try {
+            $sql = "SELECT 
+                    COUNT(*) as total_transactions,
+                    COALESCE(SUM(CASE WHEN status = 'completed' THEN amount ELSE 0 END), 0) as total_collected,
+                    COALESCE(SUM(CASE WHEN status = 'pending' THEN amount ELSE 0 END), 0) as pending_payment
+                FROM {$this->tableName}
+                WHERE 1=1";
+            $params = [];
+
+            if ($period) {
+                switch($period) {
+                    case 'today':
+                        $sql .= " AND DATE(created_at) = CURDATE()";
+                        break;
+                    case 'week':
+                        $sql .= " AND created_at >= DATE_SUB(CURDATE(), INTERVAL 1 WEEK)";
+                        break;
+                    case 'month':
+                        $sql .= " AND created_at >= DATE_SUB(CURDATE(), INTERVAL 1 MONTH)";
+                        break;
+                    case 'year':
+                        $sql .= " AND created_at >= DATE_SUB(CURDATE(), INTERVAL 1 YEAR)";
+                        break;
+                }
+            } elseif ($startDate && $endDate) {
+                $sql .= " AND DATE(created_at) BETWEEN :start_date AND :end_date";
+                $params['start_date'] = $startDate;
+                $params['end_date'] = $endDate;
+            }
+
+            $stmt = $this->db->prepare($sql);
+            if (!$this->executeQuery($stmt, $params)) {
+                return [];
+            }
+            return $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+        } catch (PDOException $e) {
+            $this->lastError = 'Failed to get payment summary: ' . $e->getMessage();
             error_log($this->lastError);
             return [];
         }

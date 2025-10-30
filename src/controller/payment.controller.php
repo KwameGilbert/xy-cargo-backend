@@ -20,14 +20,17 @@ class PaymentsController
     }
 
     /**
-     * Get all payments
+     * Get payments with optional date filtering
      */
-    public function getAllPayments(): array
+    public function getPayments(?string $startDate = null, ?string $endDate = null, ?string $period = null): array
     {
-        $payments = $this->paymentModel->getAllPayments();
+        $payments = $this->paymentModel->getPayments($startDate, $endDate, $period);
+        $summary = $this->paymentModel->getPaymentSummary($startDate, $endDate, $period);
+        
         return [
             'status' => !empty($payments) ? 'success' : 'error',
             'payments' => $payments,
+            'summary' => $summary,
             'message' => empty($payments) ? 'No payments found' : null,
             'code' => !empty($payments) ? 200 : 404,
         ];

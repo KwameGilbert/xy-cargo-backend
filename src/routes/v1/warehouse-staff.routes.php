@@ -8,10 +8,12 @@ declare(strict_types=1);
 
 require_once CONTROLLER . '/warehouse-staff.controller.php';
 require_once CONTROLLER . '/warehouse-dashboard.controller.php';
+require_once CONTROLLER . '/payment.controller.php';
 
 return function ($app): void {
     $warehouseStaffController = new WarehouseStaffController();
     $warehouseDashboardController = new WarehouseDashboardController();
+    $paymentController = new PaymentsController();
 
      // Get warehouse dashboard data
     $app->get('/v1/warehouse-staff/dashboard/data', function ($request, $response) use ($warehouseDashboardController) {
@@ -94,14 +96,79 @@ return function ($app): void {
         return $response->withHeader('Content-Type', 'application/json')->withStatus($data['code']);
     });
 
-    // Get warehouse dashboard data
-    $app->get('/v1/warehouse-staff/dashboard/data/{warehouseId}', function ($request, $response, $args) use ($warehouseDashboardController) {
-        $warehouseId = isset($args['warehouseId']) ? (int) $args['warehouseId'] : 0;
-        if (!$warehouseId) {
-            $result = ['status' => 'error', 'code' => 400, 'message' => 'Invalid warehouse ID'];
-        } else {
-            $result = $warehouseDashboardController->getDashboardData($warehouseId);
-        }
+    // Warehouse-staff payment routes (mirror /v1/payments but scoped for warehouse staff)
+    // List payments with optional filters: ?period=... or ?start_date=...&end_date=...
+    $app->get('/v1/warehouse-staff/payments', function ($request, $response) use ($paymentController) {
+        $params = $request->getQueryParams();
+        $startDate = $params['start_date'] ?? null;
+        $endDate = $params['end_date'] ?? null;
+        $period = $params['period'] ?? null;
+        $result = $paymentController->getPayments($startDate, $endDate, $period);
+        $data = $result;
+        $response->getBody()->write(json_encode($result));
+        return $response->withHeader('Content-Type', 'application/json')->withStatus($data['code']);
+    });
+
+    // Get payment by ID
+    $app->get('/v1/warehouse-staff/payments/{id}', function ($request, $response, $args) use ($paymentController) {
+        $id = isset($args['id']) ? (int) $args['id'] : 0;
+        $result = $paymentController->getPaymentById($id);
+        $data = $result;
+        $response->getBody()->write(json_encode($result));
+        return $response->withHeader('Content-Type', 'application/json')->withStatus($data['code']);
+    });
+
+    // Get payments by invoice ID
+    $app->get('/v1/warehouse-staff/payments/invoice/{invoiceId}', function ($request, $response, $args) use ($paymentController) {
+        $invoiceId = isset($args['invoiceId']) ? (int) $args['invoiceId'] : 0;
+        $result = $paymentController->getPaymentsByInvoiceId($invoiceId);
+        $data = $result;
+        $response->getBody()->write(json_encode($result));
+        return $response->withHeader('Content-Type', 'application/json')->withStatus($data['code']);
+    });
+
+    // Get all pending payments
+    $app->get('/v1/warehouse-staff/payments/status/pending', function ($request, $response) use ($paymentController) {
+        $result = $paymentController->getPendingPayments();
+        $data = $result;
+        $response->getBody()->write(json_encode($result));
+        return $response->withHeader('Content-Type', 'application/json')->withStatus($data['code']);
+    });
+
+    // Create a new payment
+    $app->post('/v1/warehouse-staff/payments', function ($request, $response) use ($paymentController) {
+        $data = json_decode((string) $request->getBody(), true) ?? [];
+        $result = $paymentController->createPayment($data);
+        $data_response = $result;
+        $response->getBody()->write(json_encode($result));
+        return $response->withHeader('Content-Type', 'application/json')->withStatus($data_response['code']);
+    });
+
+    // Update payment by ID
+    $app->patch('/v1/warehouse-staff/payments/{id}', function ($request, $response, $args) use ($paymentController) {
+        $id = isset($args['id']) ? (int) $args['id'] : 0;
+        $data = json_decode((string) $request->getBody(), true) ?? [];
+        $result = $paymentController->updatePayment($id, $data);
+        $data_response = $result;
+        $response->getBody()->write(json_encode($result));
+        return $response->withHeader('Content-Type', 'application/json')->withStatus($data_response['code']);
+    });
+
+    // Update payment status
+    $app->patch('/v1/warehouse-staff/payments/{id}/status', function ($request, $response, $args) use ($paymentController) {
+        $id = isset($args['id']) ? (int) $args['id'] : 0;
+        $data = json_decode((string) $request->getBody(), true) ?? [];
+        $status = (string) ($data['status'] ?? '');
+        $result = $paymentController->updatePaymentStatus($id, $status);
+        $data_response = $result;
+        $response->getBody()->write(json_encode($result));
+        return $response->withHeader('Content-Type', 'application/json')->withStatus($data_response['code']);
+    });
+
+    // Delete payment
+    $app->delete('/v1/warehouse-staff/payments/{id}', function ($request, $response, $args) use ($paymentController) {
+        $id = isset($args['id']) ? (int) $args['id'] : 0;
+        $result = $paymentController->deletePayment($id);
         $data = $result;
         $response->getBody()->write(json_encode($result));
         return $response->withHeader('Content-Type', 'application/json')->withStatus($data['code']);

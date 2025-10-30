@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+require_once CONFIG . 'Database.php';
 require_once MODEL . 'parcel.model.php';
 require_once MODEL . 'parcel_item.model.php';
 require_once MODEL . 'invoice.model.php';
@@ -16,6 +17,7 @@ require_once MODEL . 'shipment-tracking-update.model.php';
  */
 class ParcelsController
 {
+    protected PDO $db;
     protected ParcelModel $parcelModel;
     protected ParcelItemModel $itemModel;
     protected InvoiceModel $invoiceModel;
@@ -24,6 +26,9 @@ class ParcelsController
 
     public function __construct()
     {
+        $database = new Database();
+        $this->db = $database->getConnection();
+        
         $this->parcelModel = new ParcelModel();
         $this->itemModel = new ParcelItemModel();
         $this->invoiceModel = new InvoiceModel();
@@ -520,47 +525,118 @@ class ParcelsController
     }
 
     /**
-     * Update parcel fields
-     * Allowed fields: shipment_id, description, weight, dimensions, status, declared_value, shipping_cost, payment_status, tags
+     * Update parcel fields and items
+     * Allowed fields: shipment_id, description, weight, dimensions, status, declared_value, shipping_cost, payment_status, tags, items
      */
     public function updateParcel(int $parcelId, array $data): array
     {
-        $existing = $this->parcelModel->getParcelById($parcelId);
-        if (!$existing) {
-            return [
-                'status' => 'error',
-                'code' => 404,
-                'message' => 'Parcel not found',
-            ];
-        }
-
-        // Validate shipment_id if provided
-        if (isset($data['shipment_id']) && $data['shipment_id'] !== null) {
-            if (!$this->shipmentModel->getShipmentById((int) $data['shipment_id'])) {
+        try {
+            $existing = $this->parcelModel->getParcelById($parcelId);
+            if (!$existing) {
                 return [
                     'status' => 'error',
-                    'code' => 400,
-                    'message' => 'Shipment does not exist',
+                    'code' => 404,
+                    'message' => 'Parcel not found',
                 ];
             }
-        }
 
-        $updated = $this->parcelModel->updateParcel($parcelId, $data);
-        if (!$updated) {
+            // Validate shipment_id if provided
+            if (isset($data['shipment_id']) && $data['shipment_id'] !== null) {
+                if (!$this->shipmentModel->getShipmentById((int) $data['shipment_id'])) {
+                    return [
+                        'status' => 'error',
+                        'code' => 400,
+                        'message' => 'Shipment does not exist',
+                    ];
+                }
+            }
+
+            // Start transaction
+            $this->db->beginTransaction();
+
+            // Extract items if they exist
+            $items = null;
+            if (isset($data['items'])) {
+                $items = $data['items'];
+                unset($data['items']); // Remove items from parcel data
+            }
+
+            // Convert tags array to JSON if present
+            // if (isset($data['tags']) && is_array($data['tags'])) {
+            //     $data['tags'] = json_encode($data['tags']);
+            // }
+
+            // Update parcel details
+            $updated = $this->parcelModel->updateParcel($parcelId, $data);
+            if (!$updated) {
+                $this->db->rollBack();
+                return [
+                    'status' => 'error',
+                    'code' => 500,
+                    'message' => 'Failed to update parcel: ' . $this->parcelModel->getLastError(),
+                ];
+            }
+
+            // Update items if provided
+            if ($items !== null) {
+                // Delete existing items
+                if (!$this->itemModel->deleteItemsByParcelId($parcelId)) {
+                    $this->db->rollBack();
+                    return [
+                        'status' => 'error',
+                        'code' => 500,
+                        'message' => 'Failed to update parcel items: ' . $this->itemModel->getLastError(),
+                    ];
+                }
+
+                // Insert new items
+                foreach ($items as $item) {
+                    $itemData = [
+                        'parcel_id' => $parcelId,
+                        'name' => $item['name'] ?? '',
+                        'quantity' => $item['quantity'] ?? 1,
+                        'value' => $item['value'] ?? 0,
+                        'weight' => $item['weight'] ?? 0,
+                        'height' => $item['dimensions']['height'] ?? 0,
+                        'width' => $item['dimensions']['width'] ?? 0,
+                        'length' => $item['dimensions']['length'] ?? 0,
+                        'fragile' => $item['fragile'] ?? false,
+                        'special_packaging' => $item['special_packaging'] ?? false,
+                    ];
+
+                    if (!$this->itemModel->createItem($itemData)) {
+                        $this->db->rollBack();
+                        return [
+                            'status' => 'error',
+                            'code' => 500,
+                            'message' => 'Failed to create item: ' . $this->itemModel->getLastError(),
+                        ];
+                    }
+                }
+            }
+
+            // Commit transaction
+            $this->db->commit();
+
+            // Get updated parcel with all details
+            $parcel = $this->parcelModel->getParcelWithDetails($parcelId);
+            return [
+                'status' => 'success',
+                'code' => 200,
+                'parcel' => $parcel,
+                'message' => 'Parcel and items updated successfully',
+            ];
+        } catch (Exception $e) {
+            // Rollback transaction on any error
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
             return [
                 'status' => 'error',
                 'code' => 500,
-                'message' => 'Failed to update parcel: ' . $this->parcelModel->getLastError(),
+                'message' => 'Failed to update parcel: ' . $e->getMessage(),
             ];
         }
-
-        $parcel = $this->parcelModel->getParcelById($parcelId);
-        return [
-            'status' => 'success',
-            'code' => 200,
-            'parcel' => $parcel,
-            'message' => 'Parcel updated successfully',
-        ];
     }
 
     /**
