@@ -98,12 +98,8 @@ return function ($app): void {
 
     // Warehouse-staff payment routes (mirror /v1/payments but scoped for warehouse staff)
     // List payments with optional filters: ?period=... or ?start_date=...&end_date=...
-    $app->get('/v1/warehouse-staff/payments', function ($request, $response) use ($paymentController) {
-        $params = $request->getQueryParams();
-        $startDate = $params['start_date'] ?? null;
-        $endDate = $params['end_date'] ?? null;
-        $period = $params['period'] ?? null;
-        $result = $paymentController->getPayments($startDate, $endDate, $period);
+    $app->get('/v1/warehouse-staff/payments/data', function ($request, $response) use ($paymentController) {
+        $result = $paymentController->getPayments();
         $data = $result;
         $response->getBody()->write(json_encode($result));
         return $response->withHeader('Content-Type', 'application/json')->withStatus($data['code']);
@@ -118,14 +114,6 @@ return function ($app): void {
         return $response->withHeader('Content-Type', 'application/json')->withStatus($data['code']);
     });
 
-    // Get payments by invoice ID
-    $app->get('/v1/warehouse-staff/payments/invoice/{invoiceId}', function ($request, $response, $args) use ($paymentController) {
-        $invoiceId = isset($args['invoiceId']) ? (int) $args['invoiceId'] : 0;
-        $result = $paymentController->getPaymentsByInvoiceId($invoiceId);
-        $data = $result;
-        $response->getBody()->write(json_encode($result));
-        return $response->withHeader('Content-Type', 'application/json')->withStatus($data['code']);
-    });
 
     // Get all pending payments
     $app->get('/v1/warehouse-staff/payments/status/pending', function ($request, $response) use ($paymentController) {
@@ -144,6 +132,8 @@ return function ($app): void {
         return $response->withHeader('Content-Type', 'application/json')->withStatus($data_response['code']);
     });
 
+   
+  
     // Update payment by ID
     $app->patch('/v1/warehouse-staff/payments/{id}', function ($request, $response, $args) use ($paymentController) {
         $id = isset($args['id']) ? (int) $args['id'] : 0;

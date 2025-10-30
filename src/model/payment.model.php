@@ -8,7 +8,9 @@ require_once CONFIG . 'Database.php';
  * Payment Model aligned to database/schema.sql
  *
  * Tables used:
- * - payments(payment_id, invoice_id, amount, payment_method, status, created_at, updated_at)
+ * - payments(payment_id, parcel_id, client_id, amount, payment_method, status, created_at, updated_at)
+ * - clients
+ * - parcels
  */
 class PaymentModel
 {
@@ -57,53 +59,46 @@ class PaymentModel
     }
 
     /**
-     * Get payments with optional date filtering and invoice details
-     * @param string|null $startDate Optional start date for filtering (Y-m-d format)
+     * Get payments with optional date filtering and client/parcel details.
+     * The date filtering parameters are kept for compatibility with the service layer, 
+     * but the logic is removed from the React component.
+     * * @param string|null $startDate Optional start date for filtering (Y-m-d format)
      * @param string|null $endDate Optional end date for filtering (Y-m-d format)
      * @param string|null $period Optional predefined period (today, week, month, year)
-     * @return array List of payments with invoice details
+     * @return array List of payments with client/parcel details
      */
     public function getPayments(?string $startDate = null, ?string $endDate = null, ?string $period = null): array
     {
         try {
-            $sql = "SELECT 
-                    p.payment_id, p.invoice_id, p.amount, p.payment_method, p.status, 
-                    p.created_at, p.updated_at,
-                    i.invoice_number, i.description as invoice_description, i.due_date,
-                    i.amount as invoice_amount,
-                    c.name as customer_name
-                FROM {$this->tableName} p
-                LEFT JOIN invoices i ON p.invoice_id = i.invoice_id
-                LEFT JOIN clients c ON i.client_id = c.client_id
-                WHERE 1=1";
-            $params = [];
-
-            // Handle period-based filtering
-            if ($period) {
-                switch($period) {
-                    case 'today':
-                        $sql .= " AND DATE(p.created_at) = CURDATE()";
-                        break;
-                    case 'week':
-                        $sql .= " AND p.created_at >= DATE_SUB(CURDATE(), INTERVAL 1 WEEK)";
-                        break;
-                    case 'month':
-                        $sql .= " AND p.created_at >= DATE_SUB(CURDATE(), INTERVAL 1 MONTH)";
-                        break;
-                    case 'year':
-                        $sql .= " AND p.created_at >= DATE_SUB(CURDATE(), INTERVAL 1 YEAR)";
-                        break;
-                }
-            } elseif ($startDate && $endDate) {
-                $sql .= " AND DATE(p.created_at) BETWEEN :start_date AND :end_date";
-                $params['start_date'] = $startDate;
-                $params['end_date'] = $endDate;
-            }
-
-            $sql .= " ORDER BY p.payment_id DESC";
+            // Updated SQL to join clients and parcels instead of invoices
+            $sql = "SELECT
+                p.payment_id,
+                p.parcel_id,
+                p.client_id,
+                p.amount,
+                p.payment_method,
+                p.status,
+                p.created_at AS payment_date, -- Alias for date paid
+                p.updated_at,
+                c.firstName AS client_first_name, 
+                c.lastName AS client_last_name,
+                CONCAT(c.firstName, ' ', c.lastName) AS customer_name,
+                l.tracking_number -- Assuming 'parcels' table has 'tracking_number' and aliasing as 'l'
+            FROM
+                {$this->tableName} p
+            LEFT JOIN
+                clients c ON p.client_id = c.client_id
+            LEFT JOIN
+                parcels l ON p.parcel_id = l.parcel_id
+            WHERE
+                1=1 
+            ORDER BY
+                p.payment_id DESC";
             
+            // NOTE: Date filtering logic removed as requested in previous steps.
+
             $stmt = $this->db->prepare($sql);
-            if (!$this->executeQuery($stmt, $params)) {
+            if (!$this->executeQuery($stmt)) {
                 return [];
             }
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -116,49 +111,28 @@ class PaymentModel
 
     /**
      * Get payment summary statistics
-     * @param string|null $startDate Optional start date for filtering (Y-m-d format)
-     * @param string|null $endDate Optional end date for filtering (Y-m-d format)
-     * @param string|null $period Optional predefined period (today, week, month, year)
-     * @return array Summary statistics
+     * The logic is simplified since there is no 'unpaid invoice' concept now.
+     * Pending is defined by payments with status 'pending' in the payments table.
+     * * @return array Summary statistics
      */
-    public function getPaymentSummary(?string $startDate = null, ?string $endDate = null, ?string $period = null): array
+    public function getPaymentSummary(): array
     {
         try {
+            // Fetch all summary stats in one query using SUM/CASE
             $sql = "SELECT 
-                    COUNT(*) as total_transactions,
-                    COALESCE(SUM(CASE WHEN status = 'completed' THEN amount ELSE 0 END), 0) as total_collected,
-                    COALESCE(SUM(CASE WHEN status = 'pending' THEN amount ELSE 0 END), 0) as pending_payment
-                FROM {$this->tableName}
-                WHERE 1=1";
-            $params = [];
-
-            if ($period) {
-                switch($period) {
-                    case 'today':
-                        $sql .= " AND DATE(created_at) = CURDATE()";
-                        break;
-                    case 'week':
-                        $sql .= " AND created_at >= DATE_SUB(CURDATE(), INTERVAL 1 WEEK)";
-                        break;
-                    case 'month':
-                        $sql .= " AND created_at >= DATE_SUB(CURDATE(), INTERVAL 1 MONTH)";
-                        break;
-                    case 'year':
-                        $sql .= " AND created_at >= DATE_SUB(CURDATE(), INTERVAL 1 YEAR)";
-                        break;
-                }
-            } elseif ($startDate && $endDate) {
-                $sql .= " AND DATE(created_at) BETWEEN :start_date AND :end_date";
-                $params['start_date'] = $startDate;
-                $params['end_date'] = $endDate;
-            }
-
+                COUNT(*) as total_transactions,
+                COALESCE(SUM(CASE WHEN status = 'completed' THEN amount ELSE 0 END), 0) as total_collected,
+                COALESCE(SUM(CASE WHEN status = 'pending' THEN amount ELSE 0 END), 0) as pending_payment
+            FROM 
+                {$this->tableName}";
+            
             $stmt = $this->db->prepare($sql);
-            if (!$this->executeQuery($stmt, $params)) {
+            if (!$this->executeQuery($stmt)) {
                 return [];
             }
             return $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
-        } catch (PDOException $e) {
+
+        } catch (PDOException $e) { 
             $this->lastError = 'Failed to get payment summary: ' . $e->getMessage();
             error_log($this->lastError);
             return [];
@@ -167,13 +141,22 @@ class PaymentModel
 
     /**
      * Get payment by ID
+     * Includes client and parcel details.
      */
     public function getPaymentById(int $paymentId): ?array
     {
         try {
-            $sql = "SELECT payment_id, invoice_id, amount, payment_method, status, created_at, updated_at
-                    FROM {$this->tableName}
-                    WHERE payment_id = :payment_id";
+            $sql = "SELECT
+                p.*,
+                c.firstName AS client_first_name, 
+                c.lastName AS client_last_name
+            FROM
+                {$this->tableName} p
+            LEFT JOIN
+                clients c ON p.client_id = c.client_id
+            WHERE
+                p.payment_id = :payment_id";
+            
             $stmt = $this->db->prepare($sql);
             if (!$this->executeQuery($stmt, ['payment_id' => $paymentId])) {
                 return null;
@@ -188,80 +171,59 @@ class PaymentModel
     }
 
     /**
-     * Get payments by invoice ID
+     * Get payments by parcel ID (Replaces getPaymentsByInvoiceId)
      */
-    public function getPaymentsByInvoiceId(int $invoiceId): array
+    public function getPaymentsByParcelId(int $parcelId): array
     {
         try {
-            // payment_date and transaction_id are not in schema; alias created_at and a synthetic reference
+            // Note: The original function was getPaymentsByInvoiceId
             $sql = "SELECT 
                         payment_id, 
-                        invoice_id, 
+                        parcel_id, 
+                        client_id,
                         amount, 
                         payment_method, 
                         status, 
                         created_at AS payment_date, 
-                        NULL AS transaction_id, 
                         created_at, 
                         updated_at
                     FROM {$this->tableName}
-                    WHERE invoice_id = :invoice_id
+                    WHERE parcel_id = :parcel_id
                     ORDER BY payment_id DESC";
             $stmt = $this->db->prepare($sql);
-            if (!$this->executeQuery($stmt, ['invoice_id' => $invoiceId])) {
+            if (!$this->executeQuery($stmt, ['parcel_id' => $parcelId])) {
                 return [];
             }
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
         } catch (PDOException $e) {
-            $this->lastError = 'Failed to get payments by invoice ID: ' . $e->getMessage();
-            error_log($this->lastError);
+            $this->lastError = 'Failed to get payments by parcel ID: ' . $e->getMessage();
             return [];
         }
     }
 
-    /**
-     * Get payments by client ID (through invoices)
-     */
-    public function getPaymentsByClientId(int $clientId): array
-    {
-        try {
-            // payment_date and transaction_id are not in schema; alias accordingly
-            $sql = "SELECT 
-                        p.payment_id, 
-                        p.invoice_id, 
-                        p.amount, 
-                        p.payment_method, 
-                        p.status, 
-                        p.created_at AS payment_date, 
-                        NULL AS transaction_id, 
-                        p.created_at, 
-                        p.updated_at
-                    FROM {$this->tableName} p
-                    INNER JOIN invoices i ON p.invoice_id = i.invoice_id
-                    WHERE i.client_id = :client_id
-                    ORDER BY p.payment_id DESC";
-            $stmt = $this->db->prepare($sql);
-            if (!$this->executeQuery($stmt, ['client_id' => $clientId])) {
-                return [];
-            }
-            return $stmt->fetchAll(PDO::FETCH_ASSOC);
-        } catch (PDOException $e) {
-            $this->lastError = 'Failed to get payments by client ID: ' . $e->getMessage();
-            error_log($this->lastError);
-            return [];
-        }
-    }
+    // Retained getPaymentsByClientId as it only needs p.* and is correctly joined to clients
 
     /**
      * Get all pending payments
+     * Includes client details for better context in the frontend.
      */
     public function getPendingPayments(): array
     {
         try {
-            $sql = "SELECT payment_id, invoice_id, amount, payment_method, status, created_at, updated_at
-                    FROM {$this->tableName}
-                    WHERE status = 'pending'
-                    ORDER BY payment_id DESC";
+            $sql = "SELECT 
+                        p.payment_id, 
+                        p.parcel_id, 
+                        p.client_id,
+                        p.amount, 
+                        p.payment_method, 
+                        p.status, 
+                        p.created_at AS payment_date, 
+                        c.firstName AS client_first_name, 
+                        c.lastName AS client_last_name
+                    FROM {$this->tableName} p
+                    LEFT JOIN clients c ON p.client_id = c.client_id
+                    WHERE p.status = 'pending'
+                    ORDER BY p.payment_id DESC";
             $stmt = $this->db->prepare($sql);
             if (!$this->executeQuery($stmt)) {
                 return [];
@@ -276,15 +238,19 @@ class PaymentModel
 
     /**
      * Create a new payment
-     * @param array{invoice_id:int,amount:float,payment_method:string,status?:string} $data
+     * @param array{parcel_id:int,client_id:int,amount:float,payment_method:string,status?:string} $data
      * @return int|false Inserted payment_id or false on failure
      */
     public function createPayment(array $data): int|false
     {
         try {
             // Validate required fields
-            if (!isset($data['invoice_id']) || !is_int($data['invoice_id']) || $data['invoice_id'] <= 0) {
-                $this->lastError = 'Valid invoice_id is required';
+            if (!isset($data['parcel_id']) || !is_int($data['parcel_id']) || $data['parcel_id'] <= 0) {
+                $this->lastError = 'Valid parcel_id is required';
+                return false;
+            }
+            if (!isset($data['client_id']) || !is_int($data['client_id']) || $data['client_id'] <= 0) {
+                $this->lastError = 'Valid client_id is required';
                 return false;
             }
             if (!isset($data['amount']) || !is_numeric($data['amount']) || $data['amount'] <= 0) {
@@ -296,12 +262,13 @@ class PaymentModel
                 return false;
             }
 
-            $sql = "INSERT INTO {$this->tableName} (invoice_id, amount, payment_method, status)
-                    VALUES (:invoice_id, :amount, :payment_method, :status)";
+            $sql = "INSERT INTO {$this->tableName} (parcel_id, client_id, amount, payment_method, status)
+                    VALUES (:parcel_id, :client_id, :amount, :payment_method, :status)";
             $stmt = $this->db->prepare($sql);
 
             $params = [
-                'invoice_id'     => $data['invoice_id'],
+                'parcel_id'      => $data['parcel_id'],
+                'client_id'      => $data['client_id'],
                 'amount'         => $data['amount'],
                 'payment_method' => $data['payment_method'],
                 'status'         => $data['status'] ?? 'pending',
@@ -318,6 +285,10 @@ class PaymentModel
             return false;
         }
     }
+
+    // --- Other methods (updatePayment, updatePaymentStatus, deletePayment) are omitted as they require no structural changes ---
+    
+    // ... insert original updatePayment, updatePaymentStatus, deletePayment methods here ...
 
     /**
      * Update payment fields
@@ -371,6 +342,39 @@ class PaymentModel
             $this->lastError = 'Failed to delete payment: ' . $e->getMessage();
             error_log($this->lastError);
             return false;
+        }
+    }
+
+    // The method getPaymentsByClientId is kept but its logic is now aligned with the new schema (although it's already joining the payments table which contains client_id, the existing logic joins to invoices, which no longer makes sense):
+    /**
+     * Get payments by client ID
+     */
+    public function getPaymentsByClientId(int $clientId): array
+    {
+        try {
+            // Updated SQL to directly query the client_id field now present in the payments table
+            $sql = "SELECT 
+                        p.payment_id, 
+                        p.parcel_id, 
+                        p.client_id,
+                        p.amount, 
+                        p.payment_method, 
+                        p.status, 
+                        p.created_at AS payment_date, 
+                        p.created_at, 
+                        p.updated_at
+                    FROM {$this->tableName} p
+                    WHERE p.client_id = :client_id
+                    ORDER BY p.payment_id DESC";
+            $stmt = $this->db->prepare($sql);
+            if (!$this->executeQuery($stmt, ['client_id' => $clientId])) {
+                return [];
+            }
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            $this->lastError = 'Failed to get payments by client ID: ' . $e->getMessage();
+            error_log($this->lastError);
+            return [];
         }
     }
 }

@@ -98,31 +98,18 @@ CREATE TABLE IF NOT EXISTS shipment_tracking_updates (
     INDEX idx_shipment_id (shipment_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- INVOICES
-CREATE TABLE IF NOT EXISTS invoices (
-    invoice_id INT AUTO_INCREMENT PRIMARY KEY,
-    parcel_id INT NOT NULL,
-    client_id INT NOT NULL,
-    amount DECIMAL(10,2) NOT NULL,
-    status VARCHAR(50) DEFAULT 'unpaid',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (parcel_id) REFERENCES parcels(parcel_id) ON DELETE CASCADE,
-    FOREIGN KEY (client_id) REFERENCES clients(client_id) ON DELETE CASCADE,
-    INDEX idx_parcel_id (parcel_id),
-    INDEX idx_client_id (client_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
 -- PAYMENTS
 CREATE TABLE IF NOT EXISTS payments (
     payment_id INT AUTO_INCREMENT PRIMARY KEY,
-    invoice_id INT NOT NULL,
+    parcel_id INT NOT NULL,
+    client_id INT NOT NULL,
     amount DECIMAL(10,2) NOT NULL,
     payment_method VARCHAR(50) NOT NULL,
     status VARCHAR(50) DEFAULT 'pending',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (invoice_id) REFERENCES invoices(invoice_id) ON DELETE CASCADE,
+    FOREIGN KEY (parcel_id) REFERENCES parcels(parcel_id) ON DELETE CASCADE,
+    FOREIGN KEY (client_id) REFERENCES clients(client_id) ON DELETE CASCADE,
     INDEX idx_invoice_id (invoice_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

@@ -395,6 +395,52 @@ class ClientsController
         return null;
     }
 
+    public function getClientByParcelIdOrTrackingNumber(string $parcelIdOrTrackingNumber): string
+    {
+        if (!$parcelIdOrTrackingNumber) {
+            return json_encode([
+                'status' => 'error',
+                'code' => 400,
+                'message' => 'Invalid parcel ID or tracking number'
+            ], JSON_PRETTY_PRINT);
+        }
+        require_once MODEL . 'parcel.model.php';
+        $this->parcelModel = new ParcelModel(); 
+        if (is_numeric($parcelIdOrTrackingNumber)) {
+            $parcelIdOrTrackingNumber = (int) $parcelIdOrTrackingNumber;
+            $parcel = $this->parcelModel->getParcelById($parcelIdOrTrackingNumber);
+        } else {
+            $parcel = $this->parcelModel->getParcelByTrackingNumber($parcelIdOrTrackingNumber);
+        }
+      
+        
+        if (!$parcel) {
+            return json_encode([
+                'status' => 'error',
+                'code' => 404,
+                'message' => 'Parcel not found'
+            ], JSON_PRETTY_PRINT);
+        }
+
+        $clientId = (int) ($parcel['client_id'] ?? 0);
+        $client = $this->clientModel->getClientById($clientId);
+        if (!$client) {
+            return json_encode([
+                'status' => 'error',
+                'code' => 404,
+                'message' => 'Client not found for this parcel'
+            ], JSON_PRETTY_PRINT);
+        }
+
+        return json_encode([
+            'status' => 'success',
+            'code' => 200,
+            'client' => $client,
+            'parcel' => $parcel,
+            'message' => null
+        ], JSON_PRETTY_PRINT);
+    }
+
     /**
      * Get client dashboard data
      * @param int $clientId
@@ -769,43 +815,6 @@ class ClientsController
                 'invoices' => $formattedInvoices,
                 'payments' => $formattedPayments
             ],
-            'message' => null
-        ];
-    }
-
-    /**
-     * Get single invoice details for client
-     */
-    public function getClientInvoiceById(int $clientId, int $invoiceId): array
-    {
-        if (!$clientId || !$invoiceId) {
-            return [
-                'status' => 'error',
-                'code' => 400,
-                'message' => 'Invalid client ID or invoice ID'
-            ];
-        }
-
-        $invoice = $this->invoiceModel->getInvoiceById($invoiceId);
-        
-        // Verify invoice belongs to client
-        if (!$invoice || $invoice['client_id'] != $clientId) {
-            return [
-                'status' => 'error',
-                'code' => 404,
-                'message' => 'Invoice not found'
-            ];
-        }
-
-        // Get associated payments
-        $payments = $this->paymentModel->getPaymentsByInvoiceId($invoiceId);
-
-        $formattedInvoice = $this->formatInvoiceDetailsForClient($invoice, $payments);
-
-        return [
-            'status' => 'success',
-            'code' => 200,
-            'invoice' => $formattedInvoice,
             'message' => null
         ];
     }

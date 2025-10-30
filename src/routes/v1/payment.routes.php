@@ -17,13 +17,15 @@ return function ($app): void {
     $authMiddleware = new AuthMiddleware();
 
     // Get payments with optional date filtering
+    // NOTE: Date parameters are accepted here but ignored by the current controller logic.
     $app->get('/v1/payments', function ($request, $response) use ($paymentController) {
         $params = $request->getQueryParams();
-        $startDate = $params['start_date'] ?? null;
-        $endDate = $params['end_date'] ?? null;
-        $period = $params['period'] ?? null; // daily, weekly, monthly
+        // $startDate = $params['start_date'] ?? null;
+        // $endDate = $params['end_date'] ?? null;
+        // $period = $params['period'] ?? null; // daily, weekly, monthly
         
-        $result = $paymentController->getPayments($startDate, $endDate, $period);
+        // Calling getPayments without parameters, as per the current controller's signature
+        $result = $paymentController->getPayments(); 
         $response->getBody()->write(json_encode($result));
         return $response->withHeader('Content-Type', 'application/json')->withStatus($result['code']);
     })->add($authMiddleware);
@@ -36,10 +38,10 @@ return function ($app): void {
         return $response->withHeader('Content-Type', 'application/json')->withStatus($result['code']);
     })->add($authMiddleware);
 
-    // Get payments by invoice ID
-    $app->get('/v1/payments/invoice/{invoiceId}', function ($request, $response, $args) use ($paymentController) {
-        $invoiceId = isset($args['invoiceId']) ? (int) $args['invoiceId'] : 0;
-        $result = $paymentController->getPaymentsByInvoiceId($invoiceId);
+    // Get payments by PARCEL ID (Replaced former /invoice/{invoiceId} route)
+    $app->get('/v1/payments/parcel/{parcelId}', function ($request, $response, $args) use ($paymentController) {
+        $parcelId = isset($args['parcelId']) ? (int) $args['parcelId'] : 0;
+        $result = $paymentController->getPaymentsByParcelId($parcelId);
         $data = $result;
         $response->getBody()->write(json_encode($result));
         return $response->withHeader('Content-Type', 'application/json')->withStatus($data['code']);
@@ -53,8 +55,8 @@ return function ($app): void {
         return $response->withHeader('Content-Type', 'application/json')->withStatus($data['code']);
     });
 
-    // Create a new payment
-    // Expects: {"invoice_id": int, "amount": float, "payment_method": string, "status"?: string}
+    // Create a new payment (Updated required fields)
+    // Expects: {"parcel_id": int, "client_id": int, "amount": float, "payment_method": string, "status"?: string}
     $app->post('/v1/payments', function ($request, $response) use ($paymentController) {
         $data = json_decode((string) $request->getBody(), true) ?? [];
         $result = $paymentController->createPayment($data);
@@ -92,5 +94,5 @@ return function ($app): void {
         $data = $result;
         $response->getBody()->write(json_encode($result));
         return $response->withHeader('Content-Type', 'application/json')->withStatus($data['code']);
-    });
+    })->add($authMiddleware);
 };

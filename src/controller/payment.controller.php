@@ -16,21 +16,26 @@ class PaymentsController
 
     public function __construct()
     {
+        // NOTE: The MODEL constant should be defined to point to the directory 
+        // containing the PaymentModel.php file.
         $this->paymentModel = new PaymentModel();
     }
 
     /**
      * Get payments with optional date filtering
      */
-    public function getPayments(?string $startDate = null, ?string $endDate = null, ?string $period = null): array
+    public function getPayments(): array
     {
-        $payments = $this->paymentModel->getPayments($startDate, $endDate, $period);
-        $summary = $this->paymentModel->getPaymentSummary($startDate, $endDate, $period);
+        // Date filtering parameters are often passed via Request handler, 
+        // but since the original implementation didn't show the request flow, 
+        // we'll leave it simple for now, relying on the model's default behavior.
+        $payments = $this->paymentModel->getPayments();
+        $summary = $this->paymentModel->getPaymentSummary();
         
         return [
             'status' => !empty($payments) ? 'success' : 'error',
-            'payments' => $payments,
             'summary' => $summary,
+            'payments' => $payments,
             'message' => empty($payments) ? 'No payments found' : null,
             'code' => !empty($payments) ? 200 : 404,
         ];
@@ -67,23 +72,44 @@ class PaymentsController
     }
 
     /**
-     * Get payments by invoice ID
+     * Get payments by PARCEL ID (Updated from getPaymentsByInvoiceId)
      */
-    public function getPaymentsByInvoiceId(int $invoiceId): array
+    public function getPaymentsByParcelId(int $parcelId): array
     {
-        if (!$invoiceId) {
+        if (!$parcelId) {
             return [
                 'status' => 'error',
                 'code' => 400,
-                'message' => 'Invalid invoice ID'
+                'message' => 'Invalid parcel ID'
             ];
         }
 
-        $payments = $this->paymentModel->getPaymentsByInvoiceId($invoiceId);
+        $payments = $this->paymentModel->getPaymentsByParcelId($parcelId);
         return [
             'status' => !empty($payments) ? 'success' : 'error',
             'payments' => $payments,
-            'message' => empty($payments) ? 'No payments found for this invoice' : null,
+            'message' => empty($payments) ? 'No payments found for this parcel' : null,
+            'code' => !empty($payments) ? 200 : 404,
+        ];
+    }
+    
+    // NOTE: The original getPaymentsByInvoiceId method is removed/replaced.
+    // If you need to keep a client filter:
+    public function getPaymentsByClientId(int $clientId): array
+    {
+         if (!$clientId) {
+            return [
+                'status' => 'error',
+                'code' => 400,
+                'message' => 'Invalid client ID'
+            ];
+        }
+
+        $payments = $this->paymentModel->getPaymentsByClientId($clientId);
+        return [
+            'status' => !empty($payments) ? 'success' : 'error',
+            'payments' => $payments,
+            'message' => empty($payments) ? 'No payments found for this client' : null,
             'code' => !empty($payments) ? 200 : 404,
         ];
     }
@@ -103,12 +129,13 @@ class PaymentsController
     }
 
     /**
-     * Create a new payment
-     * Expected data: invoice_id, amount, payment_method, status?
+     * Create a new payment (Updated required fields)
+     * Expected data: parcel_id, client_id, amount, payment_method, status?
      */
     public function createPayment(array $data): array
     {
-        $required = ['invoice_id', 'amount', 'payment_method'];
+        // REQUIRED FIELDS CHANGED: invoice_id removed, parcel_id and client_id added
+        $required = ['parcel_id', 'client_id', 'amount', 'payment_method'];
         $missing = [];
         foreach ($required as $field) {
             if (!isset($data[$field]) || $data[$field] === '') {
