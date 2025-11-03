@@ -239,7 +239,7 @@ function generateOtpEmailTemplate(string $otp): string
             </div>
             
             <div class="support">
-                Need help? Contact our support team at <a href="mailto:support@example.com">support@example.com</a>
+                Need help? Contact our support team at <a href="mailto:info@example.com">info@example.com</a>
             </div>
         </div>
     </div>

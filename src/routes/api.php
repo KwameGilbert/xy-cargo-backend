@@ -8,6 +8,7 @@ return function ($app): void {
     $routeMap = [
         '/v1/auth' => ROUTES . '/v1/auth.routes.php',
         '/v1/clients' => ROUTES . '/v1/client.routes.php',
+        'v1countries' => ROUTES . '/v1/country.route.php',
         '/v1/parcels' => ROUTES . '/v1/parcel.routes.php',
         '/v1/invoices' => ROUTES . '/v1/invoice.routes.php',
         '/v1/payments' => ROUTES . '/v1/payment.routes.php',

@@ -412,4 +412,271 @@ class ShipmentModel
             return [];
         }
     }
+
+
+    /**
+     * Get warehouse shipments table
+     */
+    public function getWarehouseShipmentsTableSummary(): array{
+        try {
+            $stmt = $this->db->prepare("
+            SELECT
+    s.shipment_id,
+    s.tracking_number,
+    CONCAT(s.origin_country, ' → ', s.destination_country) AS origin_destination,
+    s.departure_date,
+    s.arrival_date,
+    COUNT(p.parcel_id) AS total_parcels,
+    SUM(p.weight) AS total_weight_kg,
+    SUM(p.shipping_cost) AS total_shipping_cost,
+    s.status
+FROM
+    shipments s
+LEFT JOIN
+    parcels p ON s.shipment_id = p.shipment_id
+GROUP BY
+    s.shipment_id,
+    s.tracking_number,
+    origin_destination,
+    s.status
+ORDER BY
+    s.shipment_id;");
+    $stmt->execute();
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+       } catch (PDOException $e) {
+            $this->lastError = 'Failed to get shipnments table summary shipments: ' . $e->getMessage();
+            error_log($this->lastError);
+            return [];
+        }
+    }
+
+    /**
+     * Get Shipment Details
+     */
+    public function getShimentDetailsById(int $shipmentId): array{
+         try {
+            $stmt = $this->db->prepare("
+                    SELECT
+                s.shipment_id,
+                s.tracking_number,
+                s.status,
+                s.origin_country,
+                s.destination_country,
+                s.departure_date,
+                s.expected_delivery,
+                s.arrival_date,
+                s.notes,
+                COUNT(p.parcel_id) AS total_parcels,
+                SUM(p.weight) AS total_weight,
+                SUM(p.shipping_cost) AS total_shipping_cost
+            FROM
+                shipments s
+            LEFT JOIN
+                parcels p ON s.shipment_id = p.shipment_id
+            WHERE
+                s.shipment_id = :shipment_id
+            GROUP BY
+                s.shipment_id;");
+      $stmt->bindParam(':shipment_id', $shipmentId, PDO::PARAM_INT);
+        $stmt->execute();
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+                $this->lastError = 'Failed to get shipnments table summary shipments: ' . $e->getMessage();
+                error_log($this->lastError);
+                return [];
+            }
+    }
+
+    public function getShimentParcelsById(int $shipmentId): array{
+         try {
+            $stmt = $this->db->prepare("            
+                SELECT
+                    p.parcel_id,
+                    p.description,
+                    p.weight,
+                    p.dimensions,
+                    p.payment_status,
+                    CONCAT(c.firstName, ' ', c.lastName) AS customer_name,
+                    c.phone AS customer_contact
+                FROM
+                    parcels p
+                LEFT JOIN
+                    clients c ON p.client_id = c.client_id
+                WHERE
+                    p.shipment_id = :shipment_id");
+                    $stmt->bindParam(':shipment_id', $shipmentId, PDO::PARAM_INT);
+                        $stmt->execute();
+
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+            } catch (PDOException $e) {
+                    $this->lastError = 'Failed to get shipnments table summary shipments: ' . $e->getMessage();
+                    error_log($this->lastError);
+                    return [];
+                }
+    }
+    public function getShimentTrackingTimeline(int $shipmentId): array{
+         try {
+            $stmt = $this->db->prepare("            
+                SELECT
+                        status,
+                        location,
+                        updated_at,
+                        notes
+                    FROM
+                        shipment_tracking_updates
+                    WHERE
+                        shipment_id = :shipment_id
+                    ORDER BY
+                        updated_at DESC;");
+                    $stmt->bindParam(':shipment_id', $shipmentId, PDO::PARAM_INT);
+                        $stmt->execute();
+
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+            } catch (PDOException $e) {
+                    $this->lastError = 'Failed to get shipnments table summary shipments: ' . $e->getMessage();
+                    error_log($this->lastError);
+                    return [];
+                }
+    }
+
+    /**
+     * Add a tracking update for a shipment
+     * @param int $shipmentId
+     * @param array{status:string,location?:string,notes?:string} $data
+     * @return int|false Inserted update_id or false on failure
+     */
+    public function addTrackingUpdate(int $shipmentId, array $data): int|false
+    {
+        try {
+            // Verify shipment exists
+            $shipment = $this->getShipmentById($shipmentId);
+            if (!$shipment) {
+                $this->lastError = 'Shipment not found';
+                return false;
+            }
+
+            $sql = "INSERT INTO shipment_tracking_updates (shipment_id, status, location, notes)
+                    VALUES (:shipment_id, :status, :location, :notes)";
+            $stmt = $this->db->prepare($sql);
+
+            $params = [
+                'shipment_id' => $shipmentId,
+                'status' => $data['status'],
+                'location' => $data['location'] ?? null,
+                'notes' => $data['notes'] ?? null,
+            ];
+
+            if (!$this->executeQuery($stmt, $params)) {
+                return false;
+            }
+
+            return (int) $this->db->lastInsertId();
+        } catch (PDOException $e) {
+            $this->lastError = 'Failed to add tracking update: ' . $e->getMessage();
+            error_log($this->lastError);
+            return false;
+        }
+    }
+
+    /**
+     * Get tracking updates for a shipment
+     * @param int $shipmentId
+     * @return array
+     */
+    public function getTrackingUpdates(int $shipmentId): array
+    {
+        try {
+            $sql = "SELECT update_id, shipment_id, status, location, notes, updated_at
+                    FROM shipment_tracking_updates
+                    WHERE shipment_id = :shipment_id
+                    ORDER BY updated_at DESC";
+            $stmt = $this->db->prepare($sql);
+            if (!$this->executeQuery($stmt, ['shipment_id' => $shipmentId])) {
+                return [];
+            }
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            $this->lastError = 'Failed to get tracking updates: ' . $e->getMessage();
+            error_log($this->lastError);
+            return [];
+        }
+    }
+
+    /**
+     * Get shipment details with parcels and timeline
+     * @param int $shipmentId
+     * @return array|null
+     */
+    public function getShipmentDetailsWithRelations(int $shipmentId): ?array
+    {
+        try {
+            // Get main shipment data
+            $shipment = $this->getShipmentById($shipmentId);
+            if (!$shipment) {
+                return null;
+            }
+
+            // Get parcels
+            $parcels = $this->getShipmentParcels($shipmentId);
+
+            // Get timeline
+            $timeline = $this->getTrackingUpdates($shipmentId);
+
+            return [
+                'shipment_id' => $shipment['shipment_id'],
+                'tracking_number' => $shipment['tracking_number'],
+                'status' => $shipment['status'],
+                'origin_country' => $shipment['origin_country'],
+                'destination_country' => $shipment['destination_country'],
+                'departure_date' => $shipment['departure_date'],
+                'arrival_date' => $shipment['arrival_date'],
+                'expected_delivery' => $shipment['expected_delivery'],
+                'notes' => $shipment['notes'],
+                'total_parcels' => count($parcels),
+                'total_weight' => array_sum(array_column($parcels, 'weight')),
+                'total_shipping_cost' => array_sum(array_column($parcels, 'shipping_cost')),
+                'parcels' => $parcels,
+                'timeline' => $timeline
+            ];
+        } catch (PDOException $e) {
+            $this->lastError = 'Failed to get shipment details: ' . $e->getMessage();
+            error_log($this->lastError);
+            return null;
+        }
+    }
+
+    /**
+     * Get parcels for a shipment
+     * @param int $shipmentId
+     * @return array
+     */
+    private function getShipmentParcels(int $shipmentId): array
+    {
+        try {
+            $sql = "SELECT
+                        p.parcel_id,
+                        p.description,
+                        p.weight,
+                        p.dimensions,
+                        p.payment_status,
+                        c.firstName as customer_name,
+                        c.phone as customer_contact
+                    FROM parcels p
+                    LEFT JOIN clients c ON p.client_id = c.client_id
+                    WHERE p.shipment_id = :shipment_id
+                    ORDER BY p.parcel_id";
+            $stmt = $this->db->prepare($sql);
+            if (!$this->executeQuery($stmt, ['shipment_id' => $shipmentId])) {
+                return [];
+            }
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            $this->lastError = 'Failed to get shipment parcels: ' . $e->getMessage();
+            error_log($this->lastError);
+            return [];
+        }
+    }
+
+
 }

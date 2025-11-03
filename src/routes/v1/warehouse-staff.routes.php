@@ -9,11 +9,13 @@ declare(strict_types=1);
 require_once CONTROLLER . '/warehouse-staff.controller.php';
 require_once CONTROLLER . '/warehouse-dashboard.controller.php';
 require_once CONTROLLER . '/payment.controller.php';
+require_once CONTROLLER . '/shipment.controller.php';
 
 return function ($app): void {
     $warehouseStaffController = new WarehouseStaffController();
     $warehouseDashboardController = new WarehouseDashboardController();
     $paymentController = new PaymentsController();
+    $shipmentController = new ShipmentsController();
 
      // Get warehouse dashboard data
     $app->get('/v1/warehouse-staff/dashboard/data', function ($request, $response) use ($warehouseDashboardController) {
@@ -163,4 +165,14 @@ return function ($app): void {
         $response->getBody()->write(json_encode($result));
         return $response->withHeader('Content-Type', 'application/json')->withStatus($data['code']);
     });
+
+    // Get shipment details by shipment id
+    $app->get('/v1/warehouse-staff/shipments/{id}', function ($request, $response, $args) use ($shipmentController) {
+        $id = isset($args['id']) ? (int) $args['id'] : 0;
+        $result = $shipmentController->getShipmentDetails($id);
+        $data = $result;
+        $response->getBody()->write(json_encode($result));
+        return $response->withHeader('Content-Type', 'application/json')->withStatus($data['code']);
+    });
+
 };
